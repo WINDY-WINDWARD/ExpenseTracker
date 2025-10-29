@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, FlatList, StyleSheet, Alert, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { initDB } from '../db/database';
+import Card from "../components/Card";
 
 export default function DailySpendsScreen() {
   const [category, setCategory] = useState('');
@@ -68,7 +69,7 @@ export default function DailySpendsScreen() {
   return (
     <View style={styles.container}>
       {/* Log Spend Card */}
-      <View style={styles.card}>
+      <Card>
         <Text style={styles.header}>Log Spend</Text>
         <TextInput placeholder="Category" value={category} onChangeText={setCategory} style={styles.input} />
         <TextInput placeholder="Note" value={note} onChangeText={setNote} style={styles.input} />
@@ -89,9 +90,9 @@ export default function DailySpendsScreen() {
         <View style={styles.roundedButton}>
           <Button title="Add Spend" onPress={addSpend} />
         </View>
-      </View>
+      </Card>
       {/* Spending History Card */}
-      <View style={styles.card}>
+      <Card>
         <Text style={styles.listHeader}>Spending History</Text>
         <FlatList
           data={Object.keys(groupedSpends)}
@@ -100,22 +101,55 @@ export default function DailySpendsScreen() {
             <View style={styles.dateGroup}>
               <Text style={styles.dateHeader}>{date}</Text>
               {groupedSpends[date].map(spend => (
-                <View key={spend.id} style={styles.listItem}>
-                  <Text style={styles.spendText}>{spend.category}: ₹ {spend.amount} {spend.note ? `(${spend.note})` : ''}</Text>
-                  <View style={{ marginLeft: 'auto' }}>
-                    <Button title="Delete" color="#d63031" onPress={() => deleteSpend(spend.id)} />
+                <Card key={spend.id}>
+                  <View style={styles.listRow}>
+                    <View style={styles.infoColumn}>
+                      <Text style={styles.entryCategory}>{spend.category}</Text>
+                      <Text style={styles.entryDetails}>₹ {spend.amount} {spend.note ? `(${spend.note})` : ''}</Text>
+                    </View>
+                    <View style={styles.actionColumn}>
+                      <Button title="Delete" color="#d63031" onPress={() => deleteSpend(spend.id)} />
+                    </View>
                   </View>
-                </View>
+                </Card>
               ))}
             </View>
           )}
         />
-      </View>
+      </Card>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  entryCategory: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#2d3436',
+    marginBottom: 2,
+  },
+  entryDetails: {
+    fontSize: 15,
+    color: '#636e72',
+  },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  infoColumn: {
+    flex: 1,
+    paddingRight: 8,
+    justifyContent: 'center',
+  },
+  actionColumn: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingLeft: 8,
+    minWidth: 80,
+  },
   inputLabel: {
     marginBottom: 6,
     fontSize: 16,
@@ -126,17 +160,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     backgroundColor: '#f7f8fa',
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 24,
-    shadowColor: '#636e72',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 4,
   },
   header: {
     fontSize: 24,

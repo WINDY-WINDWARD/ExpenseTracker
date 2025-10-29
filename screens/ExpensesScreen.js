@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, FlatList, StyleSheet, Alert } from 'react-native';
 import { initDB } from '../db/database';
+import Card from "../components/Card";
 
 export default function ExpensesScreen() {
   // Delete expense handler
@@ -49,7 +50,7 @@ export default function ExpensesScreen() {
   return (
     <View style={styles.container}>
       {/* Add Expense Card */}
-      <View style={styles.card}>
+      <Card>
         <Text style={styles.header}>Add Recurring Expense</Text>
         <TextInput placeholder="Category" value={category} onChangeText={setCategory} style={styles.input} />
         <TextInput placeholder="Amount" value={amount} onChangeText={setAmount} keyboardType="numeric" style={styles.input} />
@@ -57,43 +58,65 @@ export default function ExpensesScreen() {
         <View style={styles.roundedButton}>
           <Button title="Add Expense" onPress={addExpense} />
         </View>
-      </View>
+      </Card>
       {/* Recurring Expenses Card */}
-      <View style={styles.card}>
+      <Card>
         <Text style={styles.listHeader}>Recurring Expenses</Text>
         <FlatList
           data={expensesList}
           keyExtractor={item => item.id.toString()}
           renderItem={({ item }) => (
-            <View style={styles.listItem}>
-              <Text>{item.category} - ₹ {item.amount} ({item.frequency}), {item.months_left} months left</Text>
-              <View style={{ marginLeft: 'auto' }}>
-                <Button title="Delete" color="#d63031" onPress={() => deleteExpense(item.id)} />
+            <Card>
+              <View style={styles.listRow}>
+                <View style={styles.infoColumn}>
+                  <Text style={styles.entryCategory}>{item.category}</Text>
+                  <Text style={styles.entryDetails}>₹ {item.amount} ({item.frequency}), {item.months_left} months left</Text>
+                </View>
+                <View style={styles.actionColumn}>
+                  <Button title="Delete" color="#d63031" onPress={() => deleteExpense(item.id)} />
+                </View>
               </View>
-            </View>
+            </Card>
           )}
         />
-      </View>
+      </Card>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  entryCategory: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#2d3436',
+    marginBottom: 2,
+  },
+  entryDetails: {
+    fontSize: 15,
+    color: '#636e72',
+  },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  infoColumn: {
+    flex: 1,
+    paddingRight: 8,
+    justifyContent: 'center',
+  },
+  actionColumn: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingLeft: 8,
+    minWidth: 80,
+  },
   container: {
     flex: 1,
     padding: 16,
     backgroundColor: '#f7f8fa',
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 24,
-    shadowColor: '#636e72',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 4,
   },
   header: {
     fontSize: 24,

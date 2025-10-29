@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { initDB } from "../db/database";
+import Card from "../components/Card";
 
 export default function IncomeScreen() {
   // Delete income handler
@@ -72,7 +73,7 @@ export default function IncomeScreen() {
   return (
     <View style={styles.container}>
       {/* Add Income Card */}
-      <View style={styles.card}>
+      <Card>
         <Text style={styles.header}>Add Income</Text>
 
         <TextInput
@@ -108,41 +109,61 @@ export default function IncomeScreen() {
         <View style={[styles.roundedButton, { marginTop: 16 }]}> 
           <Button title="Add Income" onPress={addIncome} />
         </View>
-      </View>
+      </Card>
 
       {/* Income History Card */}
-      <View style={styles.card}>
+      <Card>
         <Text style={styles.listHeader}>Income History</Text>
         <FlatList
           data={incomeList}
           keyExtractor={(item) => item.id.toString()}
           renderItem={({ item }) => (
-            <View style={styles.listItem}>
-              <Text>
-                {item.source} - ₹ {item.amount} on {item.date}
-              </Text>
-              <View style={{ marginLeft: 'auto' }}>
-                <Button title="Delete" color="#d63031" onPress={() => deleteIncome(item.id)} />
+            <Card>
+              <View style={styles.listRow}>
+                <View style={styles.infoColumn}>
+                  <Text style={styles.entrySource}>{item.source}</Text>
+                  <Text style={styles.entryDetails}>₹ {item.amount} on {item.date}</Text>
+                </View>
+                <View style={styles.actionColumn}>
+                  <Button title="Delete" color="#d63031" onPress={() => deleteIncome(item.id)} />
+                </View>
               </View>
-            </View>
+            </Card>
           )}
         />
-      </View>
+      </Card>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 24,
-    shadowColor: '#636e72',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 4,
+  entrySource: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#2d3436',
+    marginBottom: 2,
+  },
+  entryDetails: {
+    fontSize: 15,
+    color: '#636e72',
+  },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  infoColumn: {
+    flex: 1,
+    paddingRight: 8,
+    justifyContent: 'center',
+  },
+  actionColumn: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingLeft: 8,
+    minWidth: 80,
   },
   container: {
     flex: 1,
