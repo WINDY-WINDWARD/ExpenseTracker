@@ -2,3 +2,5 @@ node_modules
 .expo
 .github
 .vscode
+android
+dist

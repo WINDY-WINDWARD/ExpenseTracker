@@ -39,4 +39,3 @@ A modern finance tracking mobile app built with React Native (Expo) and SQLite.
 - Code is modular and well-commented for scalability.
 
 ---
-Replace placeholder assets and icons as needed.
