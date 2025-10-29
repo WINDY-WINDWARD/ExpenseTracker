@@ -36,13 +36,24 @@ function MainTabs() {
     <Tab.Navigator initialRouteName="Dashboard">
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Income" component={IncomeScreen} />
-      <Tab.Screen name="Expenses" component={ExpensesScreen} />
+      <Tab.Screen name="Expenses">
+        {() => <ExpensesStack />}
+      </Tab.Screen>
       <Tab.Screen name="Daily Spends">
-        {() => (
-          <InnerStack />
-        )}
+        {() => <InnerStack />}
       </Tab.Screen>
     </Tab.Navigator>
+  );
+// Stack navigator for Expenses tab to allow navigation to AddExpenseScreen
+}
+
+const ExpensesStack = () => {
+  const StackNavigator = createStackNavigator();
+  return (
+    <StackNavigator.Navigator initialRouteName="ExpensesScreen" screenOptions={{ headerShown: false }}>
+      <StackNavigator.Screen name="ExpensesScreen" component={ExpensesScreen} />
+      <StackNavigator.Screen name="AddExpenseScreen" component={require('./screens/AddExpenseScreen').default} />
+    </StackNavigator.Navigator>
   );
 }
 

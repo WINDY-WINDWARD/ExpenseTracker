@@ -39,11 +39,11 @@ async function injectTestData() {
 
 	for (let i = 0; i < 8; i++) {
 		await db.runAsync(
-			'INSERT INTO expenses (category, amount, frequency, months_left) VALUES (?, ?, ?, ?)',
+			'INSERT INTO expenses (category, amount, paymentDay, months_left) VALUES (?, ?, ?, ?)',
 			[
 				expenseCategories[getRandomInt(0, expenseCategories.length - 1)],
 				getRandomFloat(50, 1000),
-				['monthly', 'yearly', 'one-time'][getRandomInt(0, 2)],
+				getRandomInt(1, 31),
 				getRandomInt(1, 12),
 			]
 		);
@@ -76,9 +76,26 @@ const LoadTestDataScreen = () => {
 		setLoading(false);
 	};
 
+	const handleResetDb = async () => {
+		setLoading(true);
+		try {
+			const db = await initDB();
+			await db.execAsync('DROP TABLE IF EXISTS income;');
+			await db.execAsync('DROP TABLE IF EXISTS expenses;');
+			await db.execAsync('DROP TABLE IF EXISTS daily_spends;');
+			await initDB();
+			Alert.alert('Success', 'Database reset and tables recreated!');
+		} catch (e) {
+			Alert.alert('Error', e.message);
+		}
+		setLoading(false);
+	};
+
 	return (
 		<View style={styles.container}>
 			<Button title={loading ? 'Injecting...' : 'Inject Test Data'} onPress={handleInject} disabled={loading} />
+			<View style={{ height: 16 }} />
+			<Button title={loading ? 'Resetting...' : 'Reset Database'} onPress={handleResetDb} disabled={loading} color="#d63031" />
 		</View>
 	);
 };

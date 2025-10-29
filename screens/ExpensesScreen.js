@@ -1,27 +1,11 @@
 import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Button,
-  FlatList,
-  StyleSheet,
-  Alert,
-} from "react-native";
+import { View, Text, Button, FlatList, StyleSheet } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 import { initDB } from "../db/database";
 import Card from "../components/Card";
 
 export default function ExpensesScreen() {
-  // Delete expense handler
-  const deleteExpense = async (id) => {
-    if (!db) return;
-    await db.runAsync("DELETE FROM expenses WHERE id = ?;", [id]);
-    fetchExpenses(db);
-  };
-  const [category, setCategory] = useState("");
-  const [amount, setAmount] = useState("");
-  const [frequency, setFrequency] = useState("Monthly");
-  const [monthsLeft, setMonthsLeft] = useState("");
+  const navigation = useNavigation();
   const [expensesList, setExpensesList] = useState([]);
   const [db, setDb] = useState(null);
 
@@ -41,60 +25,14 @@ export default function ExpensesScreen() {
     setExpensesList(result);
   };
 
-  const addExpense = async () => {
-    if (
-      !category ||
-      !amount ||
-      !monthsLeft ||
-      isNaN(parseFloat(amount)) ||
-      isNaN(parseInt(monthsLeft))
-    ) {
-      Alert.alert(
-        "Validation Error",
-        "Please enter valid category, amount, and months left."
-      );
-      return;
-    }
-    await db.runAsync(
-      "INSERT INTO expenses (category, amount, frequency, months_left) VALUES (?, ?, ?, ?);",
-      [category, parseFloat(amount), frequency, parseInt(monthsLeft)]
-    );
-    setCategory("");
-    setAmount("");
-    setFrequency("Monthly");
-    setMonthsLeft("");
+  const deleteExpense = async (id) => {
+    if (!db) return;
+    await db.runAsync("DELETE FROM expenses WHERE id = ?;", [id]);
     fetchExpenses(db);
   };
 
   return (
     <View style={styles.container}>
-      {/* Add Expense Card */}
-      <Card>
-        <Text style={styles.header}>Add Recurring Expense</Text>
-        <TextInput
-          placeholder="Category"
-          value={category}
-          onChangeText={setCategory}
-          style={styles.input}
-        />
-        <TextInput
-          placeholder="Amount"
-          value={amount}
-          onChangeText={setAmount}
-          keyboardType="numeric"
-          style={styles.input}
-        />
-        <TextInput
-          placeholder="Months Left"
-          value={monthsLeft}
-          onChangeText={setMonthsLeft}
-          keyboardType="numeric"
-          style={styles.input}
-        />
-        <View style={styles.roundedButton}>
-          <Button title="Add Expense" onPress={addExpense} />
-        </View>
-      </Card>
       {/* Recurring Expenses Card */}
       <Card style={styles.rExpenses}>
         <Text style={styles.listHeader}>Recurring Expenses</Text>
@@ -107,8 +45,10 @@ export default function ExpensesScreen() {
                 <View style={styles.infoColumn}>
                   <Text style={styles.entryCategory}>{item.category}</Text>
                   <Text style={styles.entryDetails}>
-                    ₹ {item.amount} ({item.frequency}), {item.months_left}{" "}
-                    months left
+                    ₹ {item.amount}, {item.months_left} months left
+                  </Text>
+                  <Text style={styles.entryDetails}>
+                    Payment Date: {item.paymentDay || "-"}
                   </Text>
                 </View>
                 <View style={styles.actionColumn}>
@@ -123,6 +63,14 @@ export default function ExpensesScreen() {
           )}
         />
       </Card>
+      <View style={styles.stickyFooter}>
+        <View style={styles.roundedButton}>
+          <Button
+            title="Add Expense"
+            onPress={() => navigation.navigate("AddExpenseScreen")}
+          />
+        </View>
+      </View>
     </View>
   );
 }
@@ -138,13 +86,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#636e72",
   },
-  rExpenses: { maxHeight: "51%", paddingTop: 8 },
+  rExpenses: { maxHeight: "92%", paddingTop: 8 },
   listRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingVertical: 4,
     paddingHorizontal: 2,
+  },
+  stickyFooter: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "#f7f8fa",
+    padding: 8,
+    borderTopWidth: 1,
+    borderColor: "#dfe6e9",
   },
   infoColumn: {
     flex: 1,
