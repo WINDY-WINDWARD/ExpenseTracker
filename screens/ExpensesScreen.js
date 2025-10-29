@@ -68,11 +68,22 @@ export default function ExpensesScreen() {
                   </Text>
                 </View>
                 <View style={styles.actionColumn}>
-                  <Button
-                    title="Delete"
-                    color="#d63031"
-                    onPress={() => deleteExpense(item.id)}
-                  />
+                  <View style={{ width: '100%' }}>
+                    <View style={{ marginBottom: 6 }}>
+                      <Button
+                        title="Edit"
+                        color="#0984e3"
+                        onPress={() =>
+                          navigation.navigate("AddExpenseScreen", { expense: item })
+                        }
+                      />
+                    </View>
+                    <Button
+                      title="Delete"
+                      color="#d63031"
+                      onPress={() => deleteExpense(item.id)}
+                    />
+                  </View>
                 </View>
               </View>
             </Card>

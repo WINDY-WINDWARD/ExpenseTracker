@@ -182,11 +182,20 @@ export default function DailySpendsScreen() {
                       </Text>
                     </View>
                     <View style={styles.actionColumn}>
-                      <Button
-                        title="Delete"
-                        color="#d63031"
-                        onPress={() => deleteSpend(spend.id)}
-                      />
+                      <View style={{ width: '100%' }}>
+                        <View style={{ marginBottom: 6 }}>
+                          <Button
+                            title="Edit"
+                            color="#0984e3"
+                            onPress={() => navigation.navigate("AddSpendScreen", { spend })}
+                          />
+                        </View>
+                        <Button
+                          title="Delete"
+                          color="#d63031"
+                          onPress={() => deleteSpend(spend.id)}
+                        />
+                      </View>
                     </View>
                   </View>
                 </Card>

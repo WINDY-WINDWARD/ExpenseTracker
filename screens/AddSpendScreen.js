@@ -1,18 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Card from '../components/Card';
-import { useNavigation } from '@react-navigation/native';
+// navigation is passed as a prop from the navigator; route used for params
 import { initDB } from '../db/database';
 
-export default function AddSpendScreen() {
+export default function AddSpendScreen({ navigation, route }) {
   const [category, setCategory] = useState('');
   const [note, setNote] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [db, setDb] = useState(null);
-  const navigation = useNavigation();
+  const [isEdit, setIsEdit] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
   React.useEffect(() => {
     const loadDb = async () => {
@@ -21,6 +22,22 @@ export default function AddSpendScreen() {
     };
     loadDb();
   }, []);
+
+  // Prefill form when navigated with a spend to edit
+  useEffect(() => {
+    const spend = route?.params?.spend;
+    if (spend) {
+      setCategory(spend.category?.toString() || '');
+      setNote(spend.note?.toString() || '');
+      setAmount(spend.amount?.toString() || '');
+      setDate(spend.date?.toString() || '');
+      setIsEdit(true);
+      setEditingId(spend.id);
+    } else {
+      setIsEdit(false);
+      setEditingId(null);
+    }
+  }, [route]);
 
   const onChangeDate = (event, selectedDate) => {
     if (event.type === 'set' && selectedDate) {
@@ -35,10 +52,22 @@ export default function AddSpendScreen() {
       Alert.alert('Validation Error', 'Please enter valid category, amount, and date.');
       return;
     }
-    await db.runAsync(
-      'INSERT INTO daily_spends (category, note, amount, date) VALUES (?, ?, ?, ?);',
-      [category, note, parseFloat(amount), date]
-    );
+    if (!db) {
+      Alert.alert('Database not ready', 'Please try again in a moment.');
+      return;
+    }
+
+    if (isEdit && editingId != null) {
+      await db.runAsync(
+        'UPDATE daily_spends SET category = ?, note = ?, amount = ?, date = ? WHERE id = ?;',
+        [category, note, parseFloat(amount), date, editingId]
+      );
+    } else {
+      await db.runAsync(
+        'INSERT INTO daily_spends (category, note, amount, date) VALUES (?, ?, ?, ?);',
+        [category, note, parseFloat(amount), date]
+      );
+    }
     setCategory('');
     setNote('');
     setAmount('');
@@ -49,7 +78,7 @@ export default function AddSpendScreen() {
   return (
     <View style={styles.container}>
       <Card>
-        <Text style={styles.header}>Log Spend</Text>
+  <Text style={styles.header}>{isEdit ? 'Edit Spend' : 'Log Spend'}</Text>
         <TextInput placeholder="Category" value={category} onChangeText={setCategory} style={styles.input} placeholderTextColor="rgba(7, 8, 8, 1)" />
         <TextInput placeholder="Note" value={note} onChangeText={setNote} style={styles.input} placeholderTextColor="rgba(7, 8, 8, 1)" />
         <TextInput placeholder="Amount" value={amount} onChangeText={setAmount} keyboardType="numeric" style={styles.input} placeholderTextColor="rgba(7, 8, 8, 1)" />
@@ -69,7 +98,7 @@ export default function AddSpendScreen() {
           />
         )}
         <View style={styles.roundedButton}>
-          <Button title="Add Spend" onPress={addSpend} />
+          <Button title={isEdit ? 'Update Spend' : 'Add Spend'} onPress={addSpend} />
         </View>
       </Card>
     </View>

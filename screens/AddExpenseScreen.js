@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,12 +11,14 @@ import Card from "../components/Card";
 import { useNavigation } from "@react-navigation/native";
 import { initDB } from "../db/database";
 
-export default function AddSpendScreen() {
+export default function AddSpendScreen({ navigation, route }) {
   const [db, setDb] = useState(null);
   const [category, setCategory] = useState("");
   const [amount, setAmount] = useState("");
   const [monthsLeft, setMonthsLeft] = useState("");
   const [paymentDay, setPaymentDay] = useState("");
+  const [isEdit, setIsEdit] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
   React.useEffect(() => {
     const loadDb = async () => {
@@ -25,6 +27,23 @@ export default function AddSpendScreen() {
     };
     loadDb();
   }, []);
+
+  // Pre-populate when navigated with params
+  useEffect(() => {
+    const expense = route?.params?.expense;
+    if (expense) {
+      setCategory(expense.category?.toString() || "");
+      setAmount(expense.amount?.toString() || "");
+      setPaymentDay(expense.paymentDay?.toString() || "");
+      setMonthsLeft(expense.months_left?.toString() || expense.monthsLeft?.toString() || "");
+      setIsEdit(true);
+      setEditingId(expense.id);
+    } else {
+      // reset if no params
+      setIsEdit(false);
+      setEditingId(null);
+    }
+  }, [route]);
 
   const addExpense = async () => {
     if (
@@ -41,22 +60,37 @@ export default function AddSpendScreen() {
       );
       return;
     }
-    await db.runAsync(
-      "INSERT INTO expenses (category, amount, paymentDay, months_left) VALUES (?, ?, ?, ?);",
-      [category, parseFloat(amount), paymentDay, parseInt(monthsLeft)]
-    );
+    if (!db) {
+      Alert.alert("Database not ready", "Please try again in a moment.");
+      return;
+    }
+
+    if (isEdit && editingId != null) {
+      // Update existing expense
+      await db.runAsync(
+        "UPDATE expenses SET category = ?, amount = ?, paymentDay = ?, months_left = ? WHERE id = ?;",
+        [category, parseFloat(amount), paymentDay, parseInt(monthsLeft), editingId]
+      );
+    } else {
+      // Insert new expense
+      await db.runAsync(
+        "INSERT INTO expenses (category, amount, paymentDay, months_left) VALUES (?, ?, ?, ?);",
+        [category, parseFloat(amount), paymentDay, parseInt(monthsLeft)]
+      );
+    }
+
+    // clear and go back; ExpensesScreen uses focus to reload
     setCategory("");
     setAmount("");
     setMonthsLeft("");
     setPaymentDay("");
-    fetchExpenses(db);
     navigation.goBack();
   };
 
   return (
     <View style={styles.container}>
       <Card>
-        <Text style={styles.header}>Add Recurring Expense</Text>
+  <Text style={styles.header}>{isEdit ? "Edit Recurring Expense" : "Add Recurring Expense"}</Text>
         <TextInput
           placeholder="Category"
           value={category}
@@ -88,7 +122,7 @@ export default function AddSpendScreen() {
           placeholderTextColor="rgba(7, 8, 8, 1)"
         />
         <View style={styles.roundedButton}>
-          <Button title="Add Expense" onPress={addExpense} />
+          <Button title={isEdit ? "Update Expense" : "Add Expense"} onPress={addExpense} />
         </View>
       </Card>
     </View>
