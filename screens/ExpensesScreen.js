@@ -3,6 +3,12 @@ import { View, Text, TextInput, Button, FlatList, StyleSheet, Alert } from 'reac
 import { initDB } from '../db/database';
 
 export default function ExpensesScreen() {
+  // Delete expense handler
+  const deleteExpense = async (id) => {
+    if (!db) return;
+    await db.runAsync('DELETE FROM expenses WHERE id = ?;', [id]);
+    fetchExpenses(db);
+  };
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
   const [frequency, setFrequency] = useState('Monthly');
@@ -61,6 +67,9 @@ export default function ExpensesScreen() {
           renderItem={({ item }) => (
             <View style={styles.listItem}>
               <Text>{item.category} - ₹ {item.amount} ({item.frequency}), {item.months_left} months left</Text>
+              <View style={{ marginLeft: 'auto' }}>
+                <Button title="Delete" color="#d63031" onPress={() => deleteExpense(item.id)} />
+              </View>
             </View>
           )}
         />

@@ -21,6 +21,13 @@ export default function DailySpendsScreen() {
     setShowDatePicker(false);
   };
 
+  // Delete spend handler
+  const deleteSpend = async (id) => {
+    if (!db) return;
+    await db.runAsync('DELETE FROM daily_spends WHERE id = ?;', [id]);
+    fetchSpends(db);
+  };
+
   useEffect(() => {
     const loadDb = async () => {
       const database = await initDB();
@@ -95,6 +102,9 @@ export default function DailySpendsScreen() {
               {groupedSpends[date].map(spend => (
                 <View key={spend.id} style={styles.listItem}>
                   <Text style={styles.spendText}>{spend.category}: ₹ {spend.amount} {spend.note ? `(${spend.note})` : ''}</Text>
+                  <View style={{ marginLeft: 'auto' }}>
+                    <Button title="Delete" color="#d63031" onPress={() => deleteSpend(spend.id)} />
+                  </View>
                 </View>
               ))}
             </View>

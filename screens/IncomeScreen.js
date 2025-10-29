@@ -13,6 +13,12 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { initDB } from "../db/database";
 
 export default function IncomeScreen() {
+  // Delete income handler
+  const deleteIncome = async (id) => {
+    if (!db) return;
+    await db.runAsync('DELETE FROM income WHERE id = ?;', [id]);
+    fetchIncome(db);
+  };
   const [source, setSource] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(new Date());
@@ -115,6 +121,9 @@ export default function IncomeScreen() {
               <Text>
                 {item.source} - ₹ {item.amount} on {item.date}
               </Text>
+              <View style={{ marginLeft: 'auto' }}>
+                <Button title="Delete" color="#d63031" onPress={() => deleteIncome(item.id)} />
+              </View>
             </View>
           )}
         />
