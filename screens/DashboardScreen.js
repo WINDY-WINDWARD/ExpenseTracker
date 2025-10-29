@@ -1,31 +1,46 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { RefreshControl } from 'react-native';
 import { initDB } from '../db/database';
 import { Svg, G, Text as SvgText } from 'react-native-svg';
 import PieChart from '../components/PieChart';
+
 
 export default function DashboardScreen() {
   const [income, setIncome] = useState(0);
   const [expenses, setExpenses] = useState(0);
   const [dailySpends, setDailySpends] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadData = useCallback(async () => {
+    const db = await initDB();
+    const incomeResult = await db.getFirstAsync('SELECT SUM(amount) as total FROM income;');
+    setIncome(Number(parseFloat(incomeResult.total)) || 0);
+    const expensesResult = await db.getFirstAsync('SELECT SUM(amount) as total FROM expenses;');
+    setExpenses(Number(parseFloat(expensesResult.total)) || 0);
+    const dailySpendsResult = await db.getFirstAsync('SELECT SUM(amount) as total FROM daily_spends;');
+    setDailySpends(Number(parseFloat(dailySpendsResult.total)) || 0);
+  }, []);
 
   useEffect(() => {
-    const loadData = async () => {
-      const db = await initDB();
-      const incomeResult = await db.getFirstAsync('SELECT SUM(amount) as total FROM income;');
-      setIncome(Number(parseFloat(incomeResult.total)) || 0);
-      const expensesResult = await db.getFirstAsync('SELECT SUM(amount) as total FROM expenses;');
-      setExpenses(Number(parseFloat(expensesResult.total)) || 0);
-      const dailySpendsResult = await db.getFirstAsync('SELECT SUM(amount) as total FROM daily_spends;');
-      setDailySpends(Number(parseFloat(dailySpendsResult.total)) || 0);
-    };
     loadData();
-  }, []);
+  }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
   const remainingBudget = income - expenses - dailySpends;
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <Text style={styles.header}>Dashboard</Text>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Summary</Text>
