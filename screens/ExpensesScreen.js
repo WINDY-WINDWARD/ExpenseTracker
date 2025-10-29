@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, Button, FlatList, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { initDB } from "../db/database";
@@ -8,6 +8,7 @@ export default function ExpensesScreen() {
   const navigation = useNavigation();
   const [expensesList, setExpensesList] = useState([]);
   const [db, setDb] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const loadDb = async () => {
@@ -17,6 +18,11 @@ export default function ExpensesScreen() {
     };
     loadDb();
   }, []);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchExpenses(db).finally(() => setRefreshing(false));
+  }, [db]);
 
   const fetchExpenses = async (database) => {
     const result = await (database || db).getAllAsync(
@@ -61,6 +67,8 @@ export default function ExpensesScreen() {
               </View>
             </Card>
           )}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
         />
       </Card>
       <View style={styles.stickyFooter}>

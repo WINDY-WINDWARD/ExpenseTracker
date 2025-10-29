@@ -1,4 +1,5 @@
 import React from "react";
+import { Ionicons } from '@expo/vector-icons';
 import {
   NavigationContainer,
   DefaultTheme,
@@ -12,7 +13,7 @@ import ExpensesScreen from "./screens/ExpensesScreen";
 import DailySpendsScreen from "./screens/DailySpendsScreen";
 import AddSpendScreen from "./screens/AddSpendScreen";
 import LoadTestData from "./screens/loadTestData";
-import { useColorScheme } from "react-native";
+import SettingsScreen from "./screens/SettingsScreen";
 import { enableScreens } from 'react-native-screens';
 
 enableScreens();
@@ -20,9 +21,8 @@ const Tab = createBottomTabNavigator();
 const RootStack = createStackNavigator();
 
 export default function App() {
-  const scheme = useColorScheme() ?? "light";
   return (
-    <NavigationContainer theme={scheme === "dark" ? DarkTheme : DefaultTheme}>
+    <NavigationContainer theme={DefaultTheme}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="MainTabs" component={MainTabs} />
         <RootStack.Screen name="LoadTestDataScreen" component={LoadTestData} />
@@ -33,7 +33,28 @@ export default function App() {
 
 function MainTabs() {
   return (
-    <Tab.Navigator initialRouteName="Dashboard">
+    <Tab.Navigator
+      initialRouteName="Dashboard"
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+          if (route.name === 'Dashboard') {
+            iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Income') {
+            iconName = focused ? 'cash' : 'cash-outline';
+          } else if (route.name === 'Expenses') {
+            iconName = focused ? 'card' : 'card-outline';
+          } else if (route.name === 'Daily Spends') {
+            iconName = focused ? 'calendar' : 'calendar-outline';
+          } else if (route.name === 'Settings') {
+            iconName = focused ? 'settings' : 'settings-outline';
+          }
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#007AFF',
+        tabBarInactiveTintColor: 'gray',
+      })}
+    >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Income" component={IncomeScreen} />
       <Tab.Screen name="Expenses">
@@ -42,6 +63,7 @@ function MainTabs() {
       <Tab.Screen name="Daily Spends">
         {() => <InnerStack />}
       </Tab.Screen>
+      <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );
 // Stack navigator for Expenses tab to allow navigation to AddExpenseScreen

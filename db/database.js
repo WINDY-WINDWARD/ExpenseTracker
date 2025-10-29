@@ -9,7 +9,7 @@ export const initDB = async () => {
       CREATE TABLE IF NOT EXISTS income (id INTEGER PRIMARY KEY NOT NULL, source TEXT, amount REAL, date TEXT);
     `);
     await db.execAsync(`
-      CREATE TABLE IF NOT EXISTS expenses (id INTEGER PRIMARY KEY NOT NULL, category TEXT, amount REAL, paymentDay TEXT, months_left INTEGER);
+      CREATE TABLE IF NOT EXISTS expenses (id INTEGER PRIMARY KEY NOT NULL, category TEXT, amount REAL, paymentDay INTEGER, months_left INTEGER, lastPaymentUpdate TEXT);
     `);
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS daily_spends (id INTEGER PRIMARY KEY NOT NULL, category TEXT, note TEXT, amount REAL, date TEXT);

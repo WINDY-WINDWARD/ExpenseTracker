@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import Card from "../components/Card";
 export default function DailySpendsScreen() {
   const [spendsList, setSpendsList] = useState([]);
   const [db, setDb] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const navigation = require("@react-navigation/native").useNavigation();
   const [showFilter, setShowFilter] = useState(false);
   const [startDate, setStartDate] = useState(null);
@@ -36,6 +37,11 @@ export default function DailySpendsScreen() {
     };
     loadDb();
   }, []);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchSpends(db, startDate, endDate).finally(() => setRefreshing(false));
+  }, [db, startDate, endDate]);
 
   // By default, load last 7 days
   const fetchSpends = async (database, filterStart, filterEnd) => {
@@ -177,6 +183,8 @@ export default function DailySpendsScreen() {
               ))}
             </View>
           )}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
         />
       </Card>
       <View style={styles.stickyFooter}>

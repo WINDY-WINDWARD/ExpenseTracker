@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import { initDB } from '../db/database';
 import { Svg, G, Text as SvgText } from 'react-native-svg';
 import PieChart from '../components/PieChart';
+import { updateRecurringExpenses } from '../db/updateData';
 
 
 export default function DashboardScreen() {
@@ -32,6 +33,7 @@ export default function DashboardScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadData();
+    await updateRecurringExpenses();
     setRefreshing(false);
   }, [loadData]);
 
@@ -62,9 +64,6 @@ export default function DashboardScreen() {
           ]}
           height={250}
         />
-      </View>
-      <View style={styles.buttonContainer}>
-        <Button title="Inject Test Data" onPress={() => navigation.navigate('LoadTestDataScreen')} />
       </View>
     </ScrollView>
   );

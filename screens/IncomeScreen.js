@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ export default function IncomeScreen() {
   const [incomeList, setIncomeList] = useState([]);
   const [db, setDb] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const loadDb = async () => {
@@ -35,6 +36,11 @@ export default function IncomeScreen() {
     };
     loadDb();
   }, []);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchIncome(db).finally(() => setRefreshing(false));
+  }, [db]);
 
   const fetchIncome = async (database) => {
     const result = await (database || db).getAllAsync("SELECT * FROM income;");
@@ -130,6 +136,8 @@ export default function IncomeScreen() {
               </View>
             </Card>
           )}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
         />
       </Card>
     </View>
