@@ -62,6 +62,7 @@ export default function AddSpendScreen() {
           value={category}
           onChangeText={setCategory}
           style={styles.input}
+          placeholderTextColor="rgba(7, 8, 8, 1)"
         />
         <TextInput
           placeholder="Amount"
@@ -69,12 +70,14 @@ export default function AddSpendScreen() {
           onChangeText={setAmount}
           keyboardType="numeric"
           style={styles.input}
+          placeholderTextColor="rgba(7, 8, 8, 1)"
         />
         <TextInput
           placeholder="Payment Day (DD)"
           value={paymentDay}
           onChangeText={setPaymentDay}
           style={styles.input}
+          placeholderTextColor="rgba(7, 8, 8, 1)"
         />
         <TextInput
           placeholder="Months Left"
@@ -82,6 +85,7 @@ export default function AddSpendScreen() {
           onChangeText={setMonthsLeft}
           keyboardType="numeric"
           style={styles.input}
+          placeholderTextColor="rgba(7, 8, 8, 1)"
         />
         <View style={styles.roundedButton}>
           <Button title="Add Expense" onPress={addExpense} />

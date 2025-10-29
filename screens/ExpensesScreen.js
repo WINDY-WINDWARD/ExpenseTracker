@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { View, Text, Button, FlatList, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { initDB } from "../db/database";
@@ -10,6 +11,7 @@ export default function ExpensesScreen() {
   const [db, setDb] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
+
   useEffect(() => {
     const loadDb = async () => {
       const database = await initDB();
@@ -18,6 +20,14 @@ export default function ExpensesScreen() {
     };
     loadDb();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (db) {
+        fetchExpenses(db);
+      }
+    }, [db])
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

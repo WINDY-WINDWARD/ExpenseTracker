@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -29,6 +30,7 @@ export default function DailySpendsScreen() {
     fetchSpends(db);
   };
 
+
   useEffect(() => {
     const loadDb = async () => {
       const database = await initDB();
@@ -37,6 +39,14 @@ export default function DailySpendsScreen() {
     };
     loadDb();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (db) {
+        fetchSpends(db, startDate, endDate);
+      }
+    }, [db, startDate, endDate])
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

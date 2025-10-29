@@ -50,9 +50,9 @@ export default function AddSpendScreen() {
     <View style={styles.container}>
       <Card>
         <Text style={styles.header}>Log Spend</Text>
-        <TextInput placeholder="Category" value={category} onChangeText={setCategory} style={styles.input} />
-        <TextInput placeholder="Note" value={note} onChangeText={setNote} style={styles.input} />
-        <TextInput placeholder="Amount" value={amount} onChangeText={setAmount} keyboardType="numeric" style={styles.input} />
+        <TextInput placeholder="Category" value={category} onChangeText={setCategory} style={styles.input} placeholderTextColor="rgba(7, 8, 8, 1)" />
+        <TextInput placeholder="Note" value={note} onChangeText={setNote} style={styles.input} placeholderTextColor="rgba(7, 8, 8, 1)" />
+        <TextInput placeholder="Amount" value={amount} onChangeText={setAmount} keyboardType="numeric" style={styles.input} placeholderTextColor="rgba(7, 8, 8, 1)" />
         <Text style={styles.inputLabel}>Date</Text>
         <View style={styles.roundedButton}>
           <Button

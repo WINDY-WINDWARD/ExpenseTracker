@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, StyleSheet, ScrollView, Button } from 'react-native';
 import { RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -26,9 +27,16 @@ export default function DashboardScreen() {
     setDailySpends(Number(parseFloat(dailySpendsResult.total)) || 0);
   }, []);
 
+
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

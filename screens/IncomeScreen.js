@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -28,6 +29,7 @@ export default function IncomeScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+
   useEffect(() => {
     const loadDb = async () => {
       const database = await initDB();
@@ -36,6 +38,14 @@ export default function IncomeScreen() {
     };
     loadDb();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (db) {
+        fetchIncome(db);
+      }
+    }, [db])
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -87,6 +97,7 @@ export default function IncomeScreen() {
           value={source}
           onChangeText={setSource}
           style={styles.input}
+          placeholderTextColor="rgba(7, 8, 8, 1)"
         />
         <TextInput
           placeholder="Amount"
@@ -94,6 +105,7 @@ export default function IncomeScreen() {
           onChangeText={setAmount}
           keyboardType="numeric"
           style={styles.input}
+          placeholderTextColor="rgba(7, 8, 8, 1)"
         />
 
         <Text style={styles.label}>Date</Text>
