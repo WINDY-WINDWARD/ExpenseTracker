@@ -1,5 +1,5 @@
 import React from 'react';
-import { View } from 'react-native';
+import { View, Text } from 'react-native';
 import { Svg, G, Path, Text as SvgText } from 'react-native-svg';
 
 function calculatePie(data) {
@@ -10,20 +10,20 @@ function calculatePie(data) {
   }));
   const total = sanitizedData.reduce((sum, item) => sum + item.value, 0);
   let startAngle = 0;
+  const radius = 100;
+  const centerX = 125;
+  const centerY = 125;
   return sanitizedData.map((item) => {
     const angle = total === 0 ? 0 : (item.value / total) * 360;
     const endAngle = startAngle + angle;
     const largeArcFlag = angle > 180 ? 1 : 0;
-    const radius = 100;
-    const centerX = 125;
-    const centerY = 125;
     const startRadians = (Math.PI / 180) * startAngle;
     const endRadians = (Math.PI / 180) * endAngle;
     const x1 = centerX + radius * Math.cos(startRadians);
     const y1 = centerY + radius * Math.sin(startRadians);
     const x2 = centerX + radius * Math.cos(endRadians);
     const y2 = centerY + radius * Math.sin(endRadians);
-    const path = `M${centerX},${centerY} L${x1},${y1} A${radius},${radius} 0 ${largeArcFlag},1 ${x2},${y2} Z`;
+    const path = angle === 0 ? '' : `M${centerX},${centerY} L${x1},${y1} A${radius},${radius} 0 ${largeArcFlag},1 ${x2},${y2} Z`;
     startAngle += angle;
     return { ...item, path };
   });
@@ -31,27 +31,36 @@ function calculatePie(data) {
 
 export default function PieChart({ data, height = 250 }) {
   const pieData = calculatePie(data);
+  const validCount = Array.isArray(data) ? data.filter(item => Number(item.value) > 0).length : 0;
+  const hasData = validCount >= 2;
   return (
     <View style={{ alignItems: 'center', marginVertical: 16 }}>
-      <Svg width={height} height={height}>
-        <G>
-          {pieData.map((slice, i) => (
-            <Path key={i} d={slice.path} fill={slice.color} />
-          ))}
-          {pieData.map((slice, i) => (
-            <SvgText
-              key={i}
-              x={125}
-              y={30 + i * 20}
-              fontSize={14}
-              fill={slice.color}
-              textAnchor="middle"
-            >
-              {slice.label}: {(Number(slice.value) || 0).toFixed(2)}
-            </SvgText>
-          ))}
-        </G>
-      </Svg>
+      {hasData ? (
+        <>
+          <Svg width={height} height={height}>
+            <G>
+              {pieData.map((slice, i) => (
+                slice.path ? <Path key={i} d={slice.path} fill={slice.color} /> : null
+              ))}
+            </G>
+          </Svg>
+          {/* Legend below chart */}
+          <View style={{ marginTop: 12, alignItems: 'center' }}>
+            {pieData.map((slice, i) => (
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                <View style={{ width: 14, height: 14, backgroundColor: slice.color, borderRadius: 7, marginRight: 8 }} />
+                <Text style={{ fontSize: 14, color: '#636e72' }}>{slice.label}: {(Number(slice.value) || 0).toFixed(2)}</Text>
+              </View>
+            ))}
+          </View>
+        </>
+      ) : (
+        <View style={{ height, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 16, color: '#636e72', textAlign: 'center' }}>
+            Please add data to view the chart.
+          </Text>
+        </View>
+      )}
     </View>
   );
 }

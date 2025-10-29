@@ -65,59 +65,76 @@ export default function IncomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Add Income</Text>
+      {/* Add Income Card */}
+      <View style={styles.card}>
+        <Text style={styles.header}>Add Income</Text>
 
-      <TextInput
-        placeholder="Source"
-        value={source}
-        onChangeText={setSource}
-        style={styles.input}
-      />
-      <TextInput
-        placeholder="Amount"
-        value={amount}
-        onChangeText={setAmount}
-        keyboardType="numeric"
-        style={styles.input}
-      />
+        <TextInput
+          placeholder="Source"
+          value={source}
+          onChangeText={setSource}
+          style={styles.input}
+        />
+        <TextInput
+          placeholder="Amount"
+          value={amount}
+          onChangeText={setAmount}
+          keyboardType="numeric"
+          style={styles.input}
+        />
 
-      <Text style={styles.label}>Date</Text>
+        <Text style={styles.label}>Date</Text>
         <View style={styles.roundedButton}>
           <Button
             title={`Select Date (${date.toLocaleDateString()})`}
             onPress={() => setShowDatePicker(true)}
           />
         </View>
-      {showDatePicker && (
-        <DateTimePicker
-          value={date}
-          mode="date"
-          display={Platform.OS === "ios" ? "spinner" : "calendar"}
-          onChange={onChangeDate}
-        />
-      )}
+        {showDatePicker && (
+          <DateTimePicker
+            value={date}
+            mode="date"
+            display={Platform.OS === "ios" ? "spinner" : "calendar"}
+            onChange={onChangeDate}
+          />
+        )}
 
         <View style={[styles.roundedButton, { marginTop: 16 }]}> 
           <Button title="Add Income" onPress={addIncome} />
         </View>
+      </View>
 
-      <Text style={styles.listHeader}>Income History</Text>
-      <FlatList
-        data={incomeList}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <View style={styles.listItem}>
-            <Text>
-              {item.source} - ₹ {item.amount} on {item.date}
-            </Text>
-          </View>
-        )}
-      />
+      {/* Income History Card */}
+      <View style={styles.card}>
+        <Text style={styles.listHeader}>Income History</Text>
+        <FlatList
+          data={incomeList}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => (
+            <View style={styles.listItem}>
+              <Text>
+                {item.source} - ₹ {item.amount} on {item.date}
+              </Text>
+            </View>
+          )}
+        />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 24,
+    shadowColor: '#636e72',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+  },
   container: {
     flex: 1,
     padding: 20,

@@ -23,7 +23,7 @@ export default function App() {
         <Tab.Screen name="Dashboard" component={DashboardScreen} />
         <Tab.Screen name="Income" component={IncomeScreen} />
         <Tab.Screen name="Expenses" component={ExpensesScreen} />
-        <Tab.Screen name="DailySpends" component={DailySpendsScreen} />
+        <Tab.Screen name="Daily Spends" component={DailySpendsScreen} />
       </Tab.Navigator>
     </NavigationContainer>
   );
