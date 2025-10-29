@@ -13,11 +13,11 @@ export default function DashboardScreen() {
     const loadData = async () => {
       const db = await initDB();
       const incomeResult = await db.getFirstAsync('SELECT SUM(amount) as total FROM income;');
-      setIncome(incomeResult.total || 0);
+      setIncome(Number(parseFloat(incomeResult.total)) || 0);
       const expensesResult = await db.getFirstAsync('SELECT SUM(amount) as total FROM expenses;');
-      setExpenses(expensesResult.total || 0);
+      setExpenses(Number(parseFloat(expensesResult.total)) || 0);
       const dailySpendsResult = await db.getFirstAsync('SELECT SUM(amount) as total FROM daily_spends;');
-      setDailySpends(dailySpendsResult.total || 0);
+      setDailySpends(Number(parseFloat(dailySpendsResult.total)) || 0);
     };
     loadData();
   }, []);

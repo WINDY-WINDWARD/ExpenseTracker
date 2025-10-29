@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, FlatList, StyleSheet, Alert } from 'react-native';
-import db, { initDB } from '../db/database';
+import { initDB } from '../db/database';
 
 export default function DailySpendsScreen() {
   const [category, setCategory] = useState('');
@@ -8,38 +8,36 @@ export default function DailySpendsScreen() {
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState('');
   const [spendsList, setSpendsList] = useState([]);
+  const [db, setDb] = useState(null);
 
   useEffect(() => {
-    initDB();
-    fetchSpends();
+    const loadDb = async () => {
+      const database = await initDB();
+      setDb(database);
+      fetchSpends(database);
+    }
+    loadDb();
   }, []);
 
-  const fetchSpends = () => {
-    db.transaction(tx => {
-      tx.executeSql('SELECT * FROM daily_spends ORDER BY date DESC;', [], (_, { rows }) => {
-        setSpendsList(rows._array);
-      });
-    });
+  const fetchSpends = async (database) => {
+    const result = await (database || db).getAllAsync('SELECT * FROM daily_spends ORDER BY date DESC;');
+    setSpendsList(result);
   };
 
-  const addSpend = () => {
+  const addSpend = async () => {
     if (!category || !amount || !date || isNaN(parseFloat(amount))) {
       Alert.alert('Validation Error', 'Please enter valid category, amount, and date.');
       return;
     }
-    db.transaction(tx => {
-      tx.executeSql(
-        'INSERT INTO daily_spends (category, note, amount, date) VALUES (?, ?, ?, ?);',
-        [category, note, parseFloat(amount), date],
-        () => {
-          setCategory('');
-          setNote('');
-          setAmount('');
-          setDate('');
-          fetchSpends();
-        }
-      );
-    });
+    await db.runAsync(
+      'INSERT INTO daily_spends (category, note, amount, date) VALUES (?, ?, ?, ?);',
+      [category, note, parseFloat(amount), date]
+    );
+    setCategory('');
+    setNote('');
+    setAmount('');
+    setDate('');
+    fetchSpends(db);
   };
 
   // Group spends by date

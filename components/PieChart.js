@@ -3,10 +3,15 @@ import { View } from 'react-native';
 import { Svg, G, Path, Text as SvgText } from 'react-native-svg';
 
 function calculatePie(data) {
-  const total = data.reduce((sum, item) => sum + item.value, 0);
+  // Sanitize values to ensure all are numbers
+  const sanitizedData = data.map(item => ({
+    ...item,
+    value: Number(parseFloat(item.value)) || 0
+  }));
+  const total = sanitizedData.reduce((sum, item) => sum + item.value, 0);
   let startAngle = 0;
-  return data.map((item) => {
-    const angle = (item.value / total) * 360;
+  return sanitizedData.map((item) => {
+    const angle = total === 0 ? 0 : (item.value / total) * 360;
     const endAngle = startAngle + angle;
     const largeArcFlag = angle > 180 ? 1 : 0;
     const radius = 100;
@@ -42,7 +47,7 @@ export default function PieChart({ data, height = 250 }) {
               fill={slice.color}
               textAnchor="middle"
             >
-              {slice.label}: {slice.value.toFixed(2)}
+              {slice.label}: {(Number(slice.value) || 0).toFixed(2)}
             </SvgText>
           ))}
         </G>
