@@ -1,6 +1,8 @@
+
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Button } from 'react-native';
 import { RefreshControl } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { initDB } from '../db/database';
 import { Svg, G, Text as SvgText } from 'react-native-svg';
 import PieChart from '../components/PieChart';
@@ -11,6 +13,7 @@ export default function DashboardScreen() {
   const [expenses, setExpenses] = useState(0);
   const [dailySpends, setDailySpends] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const navigation = useNavigation();
 
   const loadData = useCallback(async () => {
     const db = await initDB();
@@ -59,6 +62,9 @@ export default function DashboardScreen() {
           ]}
           height={250}
         />
+      </View>
+      <View style={styles.buttonContainer}>
+        <Button title="Inject Test Data" onPress={() => navigation.navigate('LoadTestDataScreen')} />
       </View>
     </ScrollView>
   );
@@ -112,5 +118,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#2d3436',
+  },
+  buttonContainer: {
+    marginTop: 10,
+    marginBottom: 30,
+    alignItems: 'center',
   },
 });

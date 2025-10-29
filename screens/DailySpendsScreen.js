@@ -5,7 +5,6 @@ import {
   Button,
   FlatList,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
 } from "react-native";
 import DateTimePicker from '@react-native-community/datetimepicker';

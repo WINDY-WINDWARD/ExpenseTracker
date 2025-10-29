@@ -112,13 +112,13 @@ export default function IncomeScreen() {
       </Card>
 
       {/* Income History Card */}
-      <Card>
+      <Card style={{maxHeight: '49%', paddingTop: 8}}>
         <Text style={styles.listHeader}>Income History</Text>
         <FlatList
           data={incomeList}
           keyExtractor={(item) => item.id.toString()}
           renderItem={({ item }) => (
-            <Card>
+            <Card style={{marginHorizontal: 4}}>
               <View style={styles.listRow}>
                 <View style={styles.infoColumn}>
                   <Text style={styles.entrySource}>{item.source}</Text>
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 4,
-    paddingHorizontal: 2,
+    paddingHorizontal: 2
   },
   infoColumn: {
     flex: 1,
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    padding: 20,
+    padding: 8,
     backgroundColor: "#f7f8fa",
   },
   header: {
@@ -200,8 +200,8 @@ const styles = StyleSheet.create({
   },
   listHeader: {
     fontSize: 20,
-    marginTop: 24,
-    marginBottom: 12,
+    marginTop: 4,
+    marginBottom: 4,
     color: "#0984e3",
     fontWeight: "bold",
     textAlign: "center",
