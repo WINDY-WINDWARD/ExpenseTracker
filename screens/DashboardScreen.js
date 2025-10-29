@@ -1,13 +1,15 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { View, Text, StyleSheet, ScrollView, Button } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Button, TouchableOpacity } from 'react-native';
 import { RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { initDB } from '../db/database';
 import { Svg, G, Text as SvgText } from 'react-native-svg';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import PieChart from '../components/PieChart';
 import { updateRecurringExpenses } from '../db/updateData';
+
 
 
 export default function DashboardScreen() {
@@ -15,18 +17,57 @@ export default function DashboardScreen() {
   const [expenses, setExpenses] = useState(0);
   const [dailySpends, setDailySpends] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [showFilter, setShowFilter] = useState(false);
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
   const navigation = useNavigation();
 
+  // Helper to format date as yyyy-mm-dd
+  const formatDate = (d) => {
+    if (!d) return null;
+    if (typeof d === 'string') return d;
+    return d.toISOString().slice(0, 10);
+  };
+
+  // By default, last 30 days
+  const getDefaultDates = () => {
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 29);
+    return {
+      start: formatDate(thirtyDaysAgo),
+      end: formatDate(today)
+    };
+  };
+
+  // Load summary data for selected date range
   const loadData = useCallback(async () => {
     const db = await initDB();
-    const incomeResult = await db.getFirstAsync('SELECT SUM(amount) as total FROM income;');
-    setIncome(Number(parseFloat(incomeResult.total)) || 0);
-    const expensesResult = await db.getFirstAsync('SELECT SUM(amount) as total FROM expenses;');
-    setExpenses(Number(parseFloat(expensesResult.total)) || 0);
-    const dailySpendsResult = await db.getFirstAsync('SELECT SUM(amount) as total FROM daily_spends;');
-    setDailySpends(Number(parseFloat(dailySpendsResult.total)) || 0);
-  }, []);
+    let filterStart = startDate || getDefaultDates().start;
+    let filterEnd = endDate || getDefaultDates().end;
 
+    // Income
+    const incomeResult = await db.getFirstAsync(
+      'SELECT SUM(amount) as total FROM income WHERE date BETWEEN ? AND ?;',
+      [filterStart, filterEnd]
+    );
+    setIncome(Number(parseFloat(incomeResult.total)) || 0);
+
+    // Expenses (recurring)
+    const expensesResult = await db.getFirstAsync(
+      'SELECT SUM(amount) as total FROM expenses;',
+    );
+    setExpenses(Number(parseFloat(expensesResult.total)) || 0);
+
+    // Daily spends
+    const dailySpendsResult = await db.getFirstAsync(
+      'SELECT SUM(amount) as total FROM daily_spends WHERE date BETWEEN ? AND ?;',
+      [filterStart, filterEnd]
+    );
+    setDailySpends(Number(parseFloat(dailySpendsResult.total)) || 0);
+  }, [startDate, endDate]);
 
   useEffect(() => {
     loadData();
@@ -45,6 +86,20 @@ export default function DashboardScreen() {
     setRefreshing(false);
   }, [loadData]);
 
+  const handleFilter = () => {
+    if (startDate && endDate) {
+      loadData();
+      setShowFilter(false);
+    }
+  };
+
+  const handleReset = () => {
+    setStartDate(null);
+    setEndDate(null);
+    loadData();
+    setShowFilter(false);
+  };
+
   const remainingBudget = income - expenses - dailySpends;
 
   return (
@@ -55,6 +110,74 @@ export default function DashboardScreen() {
       }
     >
       <Text style={styles.header}>Dashboard</Text>
+      <View style={styles.filterRow}>
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setShowFilter((v) => !v)}
+        >
+          <Text style={styles.filterButtonText}>Filter by Date</Text>
+        </TouchableOpacity>
+      </View>
+      {showFilter && (
+        <View style={styles.filterPanel}>
+          <View style={styles.datePickerRow}>
+            <TouchableOpacity
+              style={styles.datePickerButton}
+              onPress={() => setShowStartPicker(true)}
+            >
+              <Text style={styles.datePickerText}>
+                {startDate ? `Start: ${startDate}` : 'Select Start Date'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.datePickerButton}
+              onPress={() => setShowEndPicker(true)}
+            >
+              <Text style={styles.datePickerText}>
+                {endDate ? `End: ${endDate}` : 'Select End Date'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.filterActionRow}>
+            <Button
+              title="Apply Filter"
+              onPress={handleFilter}
+              disabled={!startDate || !endDate}
+            />
+            <Button
+              title="Reset"
+              color="#636e72"
+              onPress={handleReset}
+            />
+          </View>
+          {showStartPicker && (
+            <DateTimePicker
+              value={startDate ? new Date(startDate) : new Date()}
+              mode="date"
+              display="default"
+              onChange={(event, selectedDate) => {
+                setShowStartPicker(false);
+                if (selectedDate) {
+                  setStartDate(formatDate(selectedDate));
+                }
+              }}
+            />
+          )}
+          {showEndPicker && (
+            <DateTimePicker
+              value={endDate ? new Date(endDate) : new Date()}
+              mode="date"
+              display="default"
+              onChange={(event, selectedDate) => {
+                setShowEndPicker(false);
+                if (selectedDate) {
+                  setEndDate(formatDate(selectedDate));
+                }
+              }}
+            />
+          )}
+        </View>
+      )}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Summary</Text>
         <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total Income</Text><Text style={styles.summaryValue}>₹ {income.toFixed(2)}</Text></View>
@@ -78,6 +201,49 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
+  filterRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 8,
+  },
+  filterButton: {
+    backgroundColor: '#0984e3',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+  },
+  filterButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  filterPanel: {
+    backgroundColor: '#dfe6e9',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+  },
+  datePickerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  datePickerButton: {
+    backgroundColor: '#b2bec3',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginHorizontal: 4,
+  },
+  datePickerText: {
+    color: '#2d3436',
+    fontSize: 15,
+  },
+  filterActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
   container: {
     flex: 1,
     padding: 16,
