@@ -1,4 +1,6 @@
 import { getDb } from "./database";
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from "expo-sharing";
 
 /**
  * Updates the expenses table for recurring payments.
@@ -79,9 +81,158 @@ export async function updateRecurringExpenses() {
   }
 }
 
+/**
+ * Resets the database by deleting all data in the income, expenses, and daily_spends tables.
+ * This is a destructive operation and should only be used for testing or debugging purposes.
+ * After calling this function, the app will no longer have any data and will need to be re-seeded.
+ */
 export async function resetDatabase() {
   const db = getDb();
   await db.execAsync("DELETE FROM income;");
   await db.execAsync("DELETE FROM expenses;");
   await db.execAsync("DELETE FROM daily_spends;");
+}
+
+/**
+ * Export all app data (income, expenses, daily_spends) to a JSON file and
+ * open the native share dialog so the user can save/send it.
+ * Returns the file URI on success.
+ */
+export async function exportDatabase() {
+  const db = getDb();
+  try {
+    const income = await db.getAllAsync("SELECT * FROM income;");
+    const expenses = await db.getAllAsync("SELECT * FROM expenses;");
+    const daily_spends = await db.getAllAsync("SELECT * FROM daily_spends;");
+
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      income,
+      expenses,
+      daily_spends,
+    };
+
+    const json = JSON.stringify(payload, null, 2);
+    const fileName = `ExpenseTracker-export-${new Date()
+      .toISOString()
+      .replace(/[:.]/g, "-")}.json`;
+
+    // Use documentDirectory which should be available with legacy import
+    const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+    
+    await FileSystem.writeAsStringAsync(fileUri, json, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
+
+    // Share if available
+    const canShare = await Sharing.isAvailableAsync();
+    if (canShare) {
+      await Sharing.shareAsync(fileUri);
+    }
+
+    return fileUri;
+  } catch (err) {
+    console.error("❌ Failed to export database:", err);
+    throw err;
+  }
+}
+
+/**
+ * Import app data from a JSON file previously exported by `exportDatabase()`.
+ *
+ * Parameters:
+ * - fileUri: string - URI to the JSON file (e.g. returned by document picker or share target)
+ * - options.replaceExisting: boolean - if true (default) will delete existing data in the three tables
+ *
+ * Returns: { imported: { income: number, expenses: number, daily_spends: number }, fileUri }
+ */
+export async function importDatabase(fileUri, options = { updateExisting: true }) {
+  console.log("importDatabase: running", fileUri, options);
+  const { updateExisting } = options;
+  const db = getDb();
+
+  try {
+    const content = await FileSystem.readAsStringAsync(fileUri, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
+
+    const parsed = JSON.parse(content);
+
+    // Basic validation and fallback to empty arrays
+    const income = Array.isArray(parsed.income) ? parsed.income : [];
+    const expenses = Array.isArray(parsed.expenses) ? parsed.expenses : [];
+    const daily_spends = Array.isArray(parsed.daily_spends)
+      ? parsed.daily_spends
+      : [];
+
+    const summary = { income: 0, expenses: 0, daily_spends: 0, updated: 0 };
+
+    // Helper to check existence by id
+    const existsById = async (table, id) => {
+      if (id === undefined || id === null) return false;
+      const rows = await db.getAllAsync(`SELECT id FROM ${table} WHERE id = ?;`, [id]);
+      return Array.isArray(rows) && rows.length > 0;
+    };
+
+    // Helper to update a row by id
+    const updateRow = async (table, row, columns) => {
+      const setClauses = columns.map((c) => `${c} = ?`).join(", ");
+      const values = columns.map((c) => row[c]);
+      values.push(row.id);
+      const sql = `UPDATE ${table} SET ${setClauses} WHERE id = ?;`;
+      await db.runAsync(sql, values);
+    };
+
+    // Helper to insert rows. If id is provided, include it to preserve original id.
+    const insertRow = async (table, row, columns) => {
+      const hasId = Object.prototype.hasOwnProperty.call(row, "id");
+      const cols = hasId ? ["id", ...columns] : columns;
+      const placeholders = cols.map(() => "?").join(",");
+      const values = cols.map((c) => (c === "id" ? row.id : row[c]));
+      const sql = `INSERT INTO ${table} (${cols.join(",")}) VALUES (${placeholders});`;
+      await db.runAsync(sql, values);
+    };
+
+    // Upsert logic for a set of rows
+    const upsertMany = async (table, rows, columns) => {
+      for (const r of rows) {
+        try {
+          if (updateExisting && Object.prototype.hasOwnProperty.call(r, "id")) {
+            const exists = await existsById(table, r.id);
+            if (exists) {
+              await updateRow(table, r, columns);
+              summary.updated += 1;
+              continue;
+            }
+          }
+          // Insert when not updating existing or when id not present / doesn't exist
+          await insertRow(table, r, columns);
+          summary[table === "income" ? "income" : table === "expenses" ? "expenses" : "daily_spends"] += 1;
+        } catch (err) {
+          console.error(`Failed to upsert row into ${table}:`, r, err);
+        }
+      }
+    };
+
+    // Process income rows
+    await upsertMany("income", income, ["source", "amount", "date"]);
+
+    // Process expenses rows
+    await upsertMany("expenses", expenses, [
+      "category",
+      "amount",
+      "paymentDay",
+      "months_left",
+      "lastPaymentUpdate",
+    ]);
+
+    // Process daily_spends rows
+    await upsertMany("daily_spends", daily_spends, ["category", "note", "amount", "date"]);
+
+    console.log("importDatabase: finished", summary);
+    return { imported: summary, fileUri };
+  } catch (err) {
+    console.error("❌ Failed to import database:", err);
+    throw err;
+  }
 }
