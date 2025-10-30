@@ -106,7 +106,7 @@ export default function AddSpendScreen({ navigation, route }) {
           <Card>
             <Text style={styles.header}>{isEdit ? "Edit Recurring Expense" : "Add Recurring Expense"}</Text>
         <TextInput
-          placeholder="Category"
+          placeholder="Expense Name"
           value={category}
           onChangeText={setCategory}
           style={styles.input}
