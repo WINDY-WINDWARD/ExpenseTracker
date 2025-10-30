@@ -8,6 +8,7 @@ import { initDB } from '../db/database';
 import { Svg, G, Text as SvgText } from 'react-native-svg';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import PieChart from '../components/PieChart';
+import LineChart from '../components/LineChart';
 import { updateRecurringExpenses } from '../db/updateData';
 
 
@@ -22,6 +23,10 @@ export default function DashboardScreen() {
   const [endDate, setEndDate] = useState(null);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+  const [months, setMonths] = useState([]);
+  const [monthlyIncome, setMonthlyIncome] = useState([]);
+  const [monthlyExpenses, setMonthlyExpenses] = useState([]);
+  const [monthlySpends, setMonthlySpends] = useState([]);
   const navigation = useNavigation();
 
   // Helper to format date as yyyy-mm-dd
@@ -42,31 +47,121 @@ export default function DashboardScreen() {
     };
   };
 
-  // Load summary data for selected date range
+  // Return array of YYYY-MM strings between start and end inclusive
+  const getMonthsBetween = (startStr, endStr) => {
+    const start = new Date(startStr + 'T00:00:00');
+    const end = new Date(endStr + 'T00:00:00');
+    const months = [];
+    const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+    while (cursor <= end) {
+      const y = cursor.getFullYear();
+      const m = String(cursor.getMonth() + 1).padStart(2, '0');
+      months.push(`${y}-${m}`);
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+    return months;
+  };
+
+  const getLastNMonths = (n = 5) => {
+    const out = [];
+    const today = new Date();
+    for (let i = n - 1; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    return out;
+  };
+
+  const monthLabel = (ym) => {
+    // ym = YYYY-MM
+    const [y, m] = ym.split('-');
+    const date = new Date(Number(y), Number(m) - 1, 1);
+    return date.toLocaleString(undefined, { month: 'short' });
+  };
+
+  // Load summary data for selected date range and monthly aggregates
   const loadData = useCallback(async () => {
     const db = await initDB();
-    let filterStart = startDate || getDefaultDates().start;
-    let filterEnd = endDate || getDefaultDates().end;
 
-    // Income
+    // Determine months to display: if user filter set, use months in range, otherwise last 5 months
+    let monthsRange = [];
+    if (startDate && endDate) {
+      monthsRange = getMonthsBetween(startDate, endDate);
+    } else {
+      monthsRange = getLastNMonths(5);
+    }
+
+    // When the user hasn't provided an explicit date filter, we want the SQL queries
+    // to span the full months shown in the chart (not just the last 30 days). Compute
+    // filterStart/filterEnd from the monthsRange. If user set dates, use them directly.
+    let filterStart; let filterEnd;
+    if (startDate && endDate) {
+      filterStart = startDate;
+      filterEnd = endDate;
+    } else {
+      // monthsRange entries are YYYY-MM. Use first month's 1st day and last month's last day.
+      const first = monthsRange[0];
+      const last = monthsRange[monthsRange.length - 1];
+      const [fy, fm] = first.split('-');
+      const [ly, lm] = last.split('-');
+      const lastDay = new Date(Number(ly), Number(lm), 0).getDate();
+      filterStart = `${fy}-${fm}-01`;
+      filterEnd = `${ly}-${lm}-${String(lastDay).padStart(2, '0')}`;
+    }
+
+    // Total Income
     const incomeResult = await db.getFirstAsync(
       'SELECT SUM(amount) as total FROM income WHERE date BETWEEN ? AND ?;',
       [filterStart, filterEnd]
     );
     setIncome(Number(parseFloat(incomeResult.total)) || 0);
 
-    // Expenses (recurring)
+    // Recurring expenses (sum of recurring monthly amounts)
     const expensesResult = await db.getFirstAsync(
-      'SELECT SUM(amount) as total FROM expenses;',
+      'SELECT SUM(amount) as total FROM expenses;'
     );
-    setExpenses(Number(parseFloat(expensesResult.total)) || 0);
+    const recurringTotal = Number(parseFloat(expensesResult.total)) || 0;
+    setExpenses(recurringTotal);
 
-    // Daily spends
+    // Total daily spends
     const dailySpendsResult = await db.getFirstAsync(
       'SELECT SUM(amount) as total FROM daily_spends WHERE date BETWEEN ? AND ?;',
       [filterStart, filterEnd]
     );
     setDailySpends(Number(parseFloat(dailySpendsResult.total)) || 0);
+
+    setMonths(monthsRange.map(m => monthLabel(m)));
+
+    // Query income grouped by YYYY-MM
+    const incomeRows = await db.getAllAsync(
+      "SELECT strftime('%Y-%m', date) as ym, SUM(amount) as total FROM income WHERE date BETWEEN ? AND ? GROUP BY ym ORDER BY ym;",
+      [filterStart, filterEnd]
+    );
+    const incomeMap = {};
+    (incomeRows || []).forEach(r => { incomeMap[r.ym] = Number(r.total) || 0; });
+
+    // Query daily_spends grouped by YYYY-MM
+    const spendsRows = await db.getAllAsync(
+      "SELECT strftime('%Y-%m', date) as ym, SUM(amount) as total FROM daily_spends WHERE date BETWEEN ? AND ? GROUP BY ym ORDER BY ym;",
+      [filterStart, filterEnd]
+    );
+    const spendsMap = {};
+    (spendsRows || []).forEach(r => { spendsMap[r.ym] = Number(r.total) || 0; });
+
+    // For recurring expenses we don't have per-month dates, so use recurringTotal as monthly amount
+    const incomeSeries = [];
+    const spendsSeries = [];
+    const expensesSeries = [];
+    monthsRange.forEach(ym => {
+      incomeSeries.push(incomeMap[ym] || 0);
+      spendsSeries.push(spendsMap[ym] || 0);
+      expensesSeries.push(recurringTotal || 0);
+    });
+
+    setMonthlyIncome(incomeSeries);
+    setMonthlySpends(spendsSeries);
+    setMonthlyExpenses(expensesSeries);
+
   }, [startDate, endDate]);
 
   useEffect(() => {
@@ -183,7 +278,7 @@ export default function DashboardScreen() {
         <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total Income</Text><Text style={styles.summaryValue}>₹ {income.toFixed(2)}</Text></View>
         <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Recurring Expenses</Text><Text style={styles.summaryValue}>₹ {expenses.toFixed(2)}</Text></View>
         <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Daily Spending</Text><Text style={styles.summaryValue}>₹ {dailySpends.toFixed(2)}</Text></View>
-        <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Remaining Budget</Text><Text style={[styles.summaryValue, { color: remainingBudget >= 0 ? '#4caf50' : '#f44336' }]}>{remainingBudget >= 0 ? '₹ ' : '-₹ '}{Math.abs(remainingBudget).toFixed(2)}</Text></View>
+        <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Remaining Balance</Text><Text style={[styles.summaryValue, { color: remainingBudget >= 0 ? '#4caf50' : '#f44336' }]}>{remainingBudget >= 0 ? '₹ ' : '-₹ '}{Math.abs(remainingBudget).toFixed(2)}</Text></View>
       </View>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Overview Chart</Text>
@@ -194,6 +289,19 @@ export default function DashboardScreen() {
             { label: 'Spends', value: dailySpends, color: '#2196f3' },
           ]}
           height={250}
+        />
+      </View>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Monthly Trends</Text>
+        <LineChart
+          months={months}
+          height={260}
+          width={340}
+          series={[
+            { label: 'Income', color: '#4caf4f8e', values: monthlyIncome },
+            { label: 'Expenses', color: '#f443368e', values: monthlyExpenses },
+            { label: 'Spends', color: '#ffb3007c', values: monthlySpends },
+          ]}
         />
       </View>
     </ScrollView>

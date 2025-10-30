@@ -56,7 +56,7 @@ async function injectTestData() {
 				spendCategories[getRandomInt(0, spendCategories.length - 1)],
 				notes[getRandomInt(0, notes.length - 1)],
 				getRandomFloat(5, 100),
-				getRandomDate(new Date(2025, 9, 1), new Date(2025, 9, 30)),
+				getRandomDate(new Date(2025, 1, 1), new Date(2025, 9, 30)),
 			]
 		);
 	}
