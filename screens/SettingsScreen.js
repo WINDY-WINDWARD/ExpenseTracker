@@ -8,12 +8,13 @@ import {
   Switch,
   ActivityIndicator,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import {
   resetDatabase,
   exportDatabase,
   importDatabase,
 } from "../db/updateData";
+import { initDB } from "../db/database";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 
@@ -43,6 +44,23 @@ const SettingsScreen = () => {
 
   const [updateExisting, setUpdateExisting] = useState(true);
   const [importing, setImporting] = useState(false);
+  const [db, setDb] = useState(null);
+
+  const initializeDb = async () => {
+    try {
+      const database = await initDB();
+      setDb(database);
+    } catch (e) {
+      console.error("Failed to initialize DB in SettingsScreen:", e);
+      setDb(null);
+    }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      initializeDb();
+    }, [])
+  );
 
   const handleImport = async () => {
     try {
@@ -60,18 +78,67 @@ const SettingsScreen = () => {
         });
         return; // user cancelled or unexpected response
       }
-      // Try to read the file first so we can surface any read errors immediately
+
       setImporting(true);
+      // Ensure DB is initialized and available
+      let database = db;
+      console.log("Current DB state before import:", database);
+      if (!database) {
+        try {
+          database = await initDB();
+          setDb(database);
+        } catch (initErr) {
+          setImporting(false);
+          console.error("Failed to initialize DB before import:", initErr);
+          Alert.alert(
+            "DB Error",
+            "Could not initialize database before import."
+          );
+          return;
+        }
+      }
+
       try {
         console.log("Reading picked file at", uri);
         const preview = await FileSystem.readAsStringAsync(uri, {
           encoding: FileSystem.EncodingType.UTF8,
         });
-        // Show a small preview so user knows the file was read
-        const short = preview.slice(0, 200);
-        console.log("File preview:", short);
-        // Optional: show a quick alert that file read succeeded (keeps UX quick)
-        // Alert.alert('File Read', `Preview:\n${short}`);
+
+        // compare file version with app version in metadata table if available
+        let appVersion = null;
+        try {
+          const metadata = await database.getAllAsync(
+            "SELECT * FROM metadata;"
+          );
+          appVersion = metadata.find((m) => m.key === "version")?.value;
+          console.log("App version from metadata table:", appVersion);
+        } catch (metaErr) {
+          // metadata table may not exist; continue without blocking import
+          console.warn("Could not read metadata table (continuing):", metaErr);
+          appVersion = null;
+        }
+
+        const parsed = preview ? JSON.parse(preview) : null;
+        const fileVersion =
+          parsed?.metadata?.find((m) => m.key === "version")?.value ?? null;
+        console.log("File version from imported data:", fileVersion);
+
+        // If the app has a recorded version but the imported file does not declare a
+        // version, treat this as a mismatch and block the import. Also block when
+        // both versions are present but different.
+        if (
+          appVersion != null &&
+          (fileVersion == null || fileVersion !== appVersion)
+        ) {
+          setImporting(false);
+          Alert.alert(
+            "Version Mismatch",
+            fileVersion == null
+              ? `Imported file is missing version metadata; app version is ${appVersion}. Import aborted.`
+              : `File version ${fileVersion} does not match app version ${appVersion}.`
+          );
+          return;
+        }
       } catch (readErr) {
         setImporting(false);
         console.error("Failed to read picked file:", readErr);

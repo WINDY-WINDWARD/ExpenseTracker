@@ -1,4 +1,5 @@
 import * as SQLite from "expo-sqlite";
+import { updateMetadata } from "./updateData";
 
 let db;
 
@@ -14,6 +15,11 @@ export const initDB = async () => {
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS daily_spends (id INTEGER PRIMARY KEY NOT NULL, category TEXT, note TEXT, amount REAL, date TEXT);
     `);
+    // versioning table
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY NOT NULL, value TEXT);
+    `);
+    updateMetadata();
   }
   return db;
 };

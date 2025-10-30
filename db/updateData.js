@@ -104,12 +104,14 @@ export async function exportDatabase() {
     const income = await db.getAllAsync("SELECT * FROM income;");
     const expenses = await db.getAllAsync("SELECT * FROM expenses;");
     const daily_spends = await db.getAllAsync("SELECT * FROM daily_spends;");
+    const metadata = await db.getAllAsync("SELECT * FROM metadata;");
 
     const payload = {
       exportedAt: new Date().toISOString(),
       income,
       expenses,
       daily_spends,
+      metadata,
     };
 
     const json = JSON.stringify(payload, null, 2);
@@ -183,9 +185,12 @@ export async function importDatabase(fileUri, options = { updateExisting: true }
       await db.runAsync(sql, values);
     };
 
-    // Helper to insert rows. If id is provided, include it to preserve original id.
-    const insertRow = async (table, row, columns) => {
-      const hasId = Object.prototype.hasOwnProperty.call(row, "id");
+    // Helper to insert rows. By default this will include the provided `id` if
+    // `includeId` is true and the row has an `id` field. When `includeId` is
+    // false (used when updateExisting === false) we intentionally omit the id so
+    // the database will assign a new autoincrement id and avoid PK conflicts.
+    const insertRow = async (table, row, columns, includeId = true) => {
+      const hasId = includeId && Object.prototype.hasOwnProperty.call(row, "id");
       const cols = hasId ? ["id", ...columns] : columns;
       const placeholders = cols.map(() => "?").join(",");
       const values = cols.map((c) => (c === "id" ? row.id : row[c]));
@@ -206,7 +211,10 @@ export async function importDatabase(fileUri, options = { updateExisting: true }
             }
           }
           // Insert when not updating existing or when id not present / doesn't exist
-          await insertRow(table, r, columns);
+          // If updateExisting is false, do not include the provided id so a new
+          // autoincrement id is created instead of trying to insert a conflicting id.
+          const includeIdForInsert = updateExisting && Object.prototype.hasOwnProperty.call(r, "id");
+          await insertRow(table, r, columns, includeIdForInsert);
           summary[table === "income" ? "income" : table === "expenses" ? "expenses" : "daily_spends"] += 1;
         } catch (err) {
           console.error(`Failed to upsert row into ${table}:`, r, err);
@@ -234,5 +242,18 @@ export async function importDatabase(fileUri, options = { updateExisting: true }
   } catch (err) {
     console.error("❌ Failed to import database:", err);
     throw err;
+  }
+}
+
+export async function updateMetadata() {
+  const db = getDb();
+  const fields = {
+    "version": "0.0.1"
+  };
+  for (const [key, value] of Object.entries(fields)) {
+    await db.runAsync(
+      `INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?);`,
+      [key, value]
+    );
   }
 }
