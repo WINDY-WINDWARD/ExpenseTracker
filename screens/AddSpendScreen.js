@@ -1,5 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, Platform } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard,
+  View,
+  Text,
+  TextInput,
+  Button,
+  StyleSheet,
+  Alert,
+} from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Card from '../components/Card';
 // navigation is passed as a prop from the navigator; route used for params
@@ -76,32 +88,41 @@ export default function AddSpendScreen({ navigation, route }) {
   };
 
   return (
-    <View style={styles.container}>
-      <Card>
-  <Text style={styles.header}>{isEdit ? 'Edit Spend' : 'Log Spend'}</Text>
-        <TextInput placeholder="Category" value={category} onChangeText={setCategory} style={styles.input} placeholderTextColor="rgba(7, 8, 8, 1)" />
-        <TextInput placeholder="Note" value={note} onChangeText={setNote} style={styles.input} placeholderTextColor="rgba(7, 8, 8, 1)" />
-        <TextInput placeholder="Amount" value={amount} onChangeText={setAmount} keyboardType="numeric" style={styles.input} placeholderTextColor="rgba(7, 8, 8, 1)" />
-        <Text style={styles.inputLabel}>Date</Text>
-        <View style={styles.roundedButton}>
-          <Button
-            title={date ? `Select Date (${date})` : 'Select Date'}
-            onPress={() => setShowDatePicker(true)}
-          />
-        </View>
-        {showDatePicker && (
-          <DateTimePicker
-            value={date ? new Date(date) : new Date()}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
-            onChange={onChangeDate}
-          />
-        )}
-        <View style={styles.roundedButton}>
-          <Button title={isEdit ? 'Update Spend' : 'Add Spend'} onPress={addSpend} />
-        </View>
-      </Card>
-    </View>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      enabled
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+          <Card>
+            <Text style={styles.header}>{isEdit ? 'Edit Spend' : 'Log Spend'}</Text>
+            <TextInput placeholder="Category" value={category} onChangeText={setCategory} style={styles.input} placeholderTextColor="rgba(7, 8, 8, 1)" />
+            <TextInput placeholder="Note" value={note} onChangeText={setNote} style={styles.input} placeholderTextColor="rgba(7, 8, 8, 1)" />
+            <TextInput placeholder="Amount" value={amount} onChangeText={setAmount} keyboardType="numeric" style={styles.input} placeholderTextColor="rgba(7, 8, 8, 1)" />
+            <Text style={styles.inputLabel}>Date</Text>
+            <View style={styles.roundedButton}>
+              <Button
+                title={date ? `Select Date (${date})` : 'Select Date'}
+                onPress={() => setShowDatePicker(true)}
+              />
+            </View>
+            {showDatePicker && (
+              <DateTimePicker
+                value={date ? new Date(date) : new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
+                onChange={onChangeDate}
+              />
+            )}
+            <View style={styles.roundedButton}>
+              <Button title={isEdit ? 'Update Spend' : 'Add Spend'} onPress={addSpend} />
+            </View>
+          </Card>
+        </ScrollView>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 }
 

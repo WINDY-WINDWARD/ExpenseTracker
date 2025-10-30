@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from "react";
 import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard,
   View,
   Text,
   TextInput,
@@ -8,7 +13,6 @@ import {
   Alert,
 } from "react-native";
 import Card from "../components/Card";
-import { useNavigation } from "@react-navigation/native";
 import { initDB } from "../db/database";
 
 export default function AddSpendScreen({ navigation, route }) {
@@ -88,9 +92,19 @@ export default function AddSpendScreen({ navigation, route }) {
   };
 
   return (
-    <View style={styles.container}>
-      <Card>
-  <Text style={styles.header}>{isEdit ? "Edit Recurring Expense" : "Add Recurring Expense"}</Text>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+      enabled
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Card>
+            <Text style={styles.header}>{isEdit ? "Edit Recurring Expense" : "Add Recurring Expense"}</Text>
         <TextInput
           placeholder="Category"
           value={category}
@@ -121,11 +135,13 @@ export default function AddSpendScreen({ navigation, route }) {
           style={styles.input}
           placeholderTextColor="rgba(7, 8, 8, 1)"
         />
-        <View style={styles.roundedButton}>
-          <Button title={isEdit ? "Update Expense" : "Add Expense"} onPress={addExpense} />
-        </View>
-      </Card>
-    </View>
+            <View style={styles.roundedButton}>
+              <Button title={isEdit ? "Update Expense" : "Add Expense"} onPress={addExpense} />
+            </View>
+          </Card>
+        </ScrollView>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -135,6 +151,11 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: "#f7f8fa",
     justifyContent: "center",
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingVertical: 16,
   },
   header: {
     fontSize: 24,
