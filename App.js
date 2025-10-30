@@ -14,6 +14,7 @@ import DailySpendsScreen from "./screens/DailySpendsScreen";
 import AddSpendScreen from "./screens/AddSpendScreen";
 import LoadTestData from "./screens/loadTestData";
 import SettingsScreen from "./screens/SettingsScreen";
+import CategoriesScreen from './screens/CategoriesScreen';
 import { enableScreens } from 'react-native-screens';
 
 enableScreens();
@@ -26,6 +27,7 @@ export default function App() {
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="MainTabs" component={MainTabs} />
         <RootStack.Screen name="LoadTestDataScreen" component={LoadTestData} />
+        <RootStack.Screen name="CategoriesScreen" component={CategoriesScreen} />
       </RootStack.Navigator>
     </NavigationContainer>
   );

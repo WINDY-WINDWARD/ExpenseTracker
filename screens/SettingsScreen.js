@@ -253,6 +253,19 @@ const SettingsScreen = () => {
             <Text style={styles.buttonText}>Inject Test Data</Text>
           </TouchableOpacity>
         </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Categories</Text>
+          <Text style={styles.smallText}>
+            Manage categories used for spends. Add new categories or edit them.
+          </Text>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => navigation.navigate('CategoriesScreen')}
+          >
+            <Text style={styles.buttonText}>Manage Categories</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

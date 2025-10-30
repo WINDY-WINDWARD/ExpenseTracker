@@ -89,10 +89,15 @@ export async function updateRecurringExpenses() {
  * After calling this function, the app will no longer have any data and will need to be re-seeded.
  */
 export async function resetDatabase() {
-  const db = getDb();
-  await db.execAsync("DELETE FROM income;");
-  await db.execAsync("DELETE FROM expenses;");
-  await db.execAsync("DELETE FROM daily_spends;");
+  try {
+    const db = getDb();
+    await db.execAsync("DELETE FROM income;");
+    await db.execAsync("DELETE FROM expenses;");
+    await db.execAsync("DELETE FROM daily_spends;");
+    await db.execAsync("DELETE FROM portfolio;");
+  } catch (e) {
+    console.warn('Could not clear tables during reset:', e);
+  }
 }
 
 export async function create_updatePortfolioBalance(newBalance) {
@@ -185,6 +190,15 @@ export async function exportDatabase() {
       );
     }
 
+    let categories = [];
+    try {
+      categories = await db.getAllAsync("SELECT * FROM categories");
+    } catch (qerr) {
+      // categories table may not exist on older installs; warn but continue
+      console.warn("Could not read categories table (continuing):", qerr);
+      categories = [];
+    }
+
     let metadata = [];
     try {
       metadata = await db.getAllAsync("SELECT * FROM metadata");
@@ -199,6 +213,7 @@ export async function exportDatabase() {
       income,
       expenses,
       daily_spends,
+      categories,
       metadata,
     };
 
@@ -258,8 +273,11 @@ export async function importDatabase(
     const daily_spends = Array.isArray(parsed.daily_spends)
       ? parsed.daily_spends
       : [];
+    const categories = Array.isArray(parsed.categories)
+      ? parsed.categories
+      : [];
 
-    const summary = { income: 0, expenses: 0, daily_spends: 0, updated: 0 };
+    const summary = { income: 0, expenses: 0, daily_spends: 0, categories: 0, updated: 0 };
 
     // Helper to check existence by id
     const existsById = async (table, id) => {
@@ -329,6 +347,10 @@ export async function importDatabase(
 
     // Process income rows
     await upsertMany("income", income, ["source", "amount", "date"]);
+
+  // Process categories rows first so names exist for reference if app wants to
+  // maintain referential integrity outside of the DB (app currently stores names in other tables).
+  await upsertMany("categories", categories, ["name"]);
 
     // Process expenses rows
     await upsertMany("expenses", expenses, [

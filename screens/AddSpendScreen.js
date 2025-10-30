@@ -11,11 +11,12 @@ import {
   Button,
   StyleSheet,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Card from '../components/Card';
 // navigation is passed as a prop from the navigator; route used for params
-import { initDB } from '../db/database';
+import { initDB, getCategories } from '../db/database';
 
 export default function AddSpendScreen({ navigation, route }) {
   const [category, setCategory] = useState('');
@@ -24,6 +25,8 @@ export default function AddSpendScreen({ navigation, route }) {
   const [date, setDate] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [db, setDb] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [showCategoryList, setShowCategoryList] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
@@ -31,6 +34,12 @@ export default function AddSpendScreen({ navigation, route }) {
     const loadDb = async () => {
       const database = await initDB();
       setDb(database);
+      try {
+        const cats = await getCategories();
+        setCategories(cats || []);
+      } catch (e) {
+        console.warn('Failed to load categories in AddSpendScreen', e);
+      }
     };
     loadDb();
   }, []);
@@ -50,6 +59,19 @@ export default function AddSpendScreen({ navigation, route }) {
       setEditingId(null);
     }
   }, [route]);
+
+  // refresh categories when screen focuses (in case user added new ones)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', async () => {
+      try {
+        const cats = await getCategories();
+        setCategories(cats || []);
+      } catch (e) {
+        console.warn('Failed to refresh categories on focus', e);
+      }
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const onChangeDate = (event, selectedDate) => {
     if (event.type === 'set' && selectedDate) {
@@ -98,7 +120,41 @@ export default function AddSpendScreen({ navigation, route }) {
         <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
           <Card>
             <Text style={styles.header}>{isEdit ? 'Edit Spend' : 'Log Spend'}</Text>
-            <TextInput placeholder="Category" value={category} onChangeText={setCategory} style={styles.input} placeholderTextColor="rgba(7, 8, 8, 1)" />
+
+            <Text style={styles.inputLabel}>Category</Text>
+            <TouchableOpacity
+              style={[styles.input, styles.selectBox]}
+              onPress={() => setShowCategoryList(!showCategoryList)}
+            >
+              <Text style={{ color: category ? '#000' : '#6b7280' }}>{category || 'Select category'}</Text>
+            </TouchableOpacity>
+            {showCategoryList && (
+              <View style={styles.dropdown}>
+                <ScrollView style={{ maxHeight: 160 }}>
+                  {categories.map((c) => (
+                    <TouchableOpacity
+                      key={String(c.id)}
+                      style={styles.dropdownItem}
+                      onPress={() => {
+                        setCategory(c.name);
+                        setShowCategoryList(false);
+                      }}
+                    >
+                      <Text>{c.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                  <TouchableOpacity
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setShowCategoryList(false);
+                      navigation.navigate('CategoriesScreen');
+                    }}
+                  >
+                    <Text style={{ color: '#2563eb' }}>+ Add new category</Text>
+                  </TouchableOpacity>
+                </ScrollView>
+              </View>
+            )}
             <TextInput placeholder="Note" value={note} onChangeText={setNote} style={styles.input} placeholderTextColor="rgba(7, 8, 8, 1)" />
             <TextInput placeholder="Amount" value={amount} onChangeText={setAmount} keyboardType="numeric" style={styles.input} placeholderTextColor="rgba(7, 8, 8, 1)" />
             <Text style={styles.inputLabel}>Date</Text>
@@ -165,5 +221,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#636e72',
     fontWeight: '500',
+  },
+  selectBox: {
+    justifyContent: 'center',
+  },
+  dropdown: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e6e6e6',
+    borderRadius: 8,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+  },
+  dropdownItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
   },
 });
