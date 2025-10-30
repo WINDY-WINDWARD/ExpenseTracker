@@ -9,7 +9,7 @@ import { Svg, G, Text as SvgText } from 'react-native-svg';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import PieChart from '../components/PieChart';
 import LineChart from '../components/LineChart';
-import { updateRecurringExpenses } from '../db/updateData';
+import { updateRecurringExpenses, calculatePortfolioValue } from '../db/updateData';
 
 
 
@@ -27,6 +27,7 @@ export default function DashboardScreen() {
   const [monthlyIncome, setMonthlyIncome] = useState([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState([]);
   const [monthlySpends, setMonthlySpends] = useState([]);
+  const [portfolioBalance, setPortfolioBalance] = useState(0);
   const navigation = useNavigation();
 
   // Helper to format date as yyyy-mm-dd
@@ -165,12 +166,30 @@ export default function DashboardScreen() {
   }, [startDate, endDate]);
 
   useEffect(() => {
-    loadData();
+    let isMounted = true;
+    const run = async () => {
+      await loadData();
+      await calculatePortfolioValue();
+      if (isMounted) {
+        setPortfolioBalance(await fetchPortfolioBalance());
+      }
+    };
+    run();
+    return () => { isMounted = false; };
   }, [loadData]);
 
   useFocusEffect(
     useCallback(() => {
-      loadData();
+      let isActive = true;
+      const run = async () => {
+        await loadData();
+        await calculatePortfolioValue();
+        if (isActive) {
+          setPortfolioBalance(await fetchPortfolioBalance());
+        }
+      };
+      run();
+      return () => { isActive = false; };
     }, [loadData])
   );
 
@@ -178,6 +197,8 @@ export default function DashboardScreen() {
     setRefreshing(true);
     await loadData();
     await updateRecurringExpenses();
+    await calculatePortfolioValue();
+    setPortfolioBalance(await fetchPortfolioBalance());
     setRefreshing(false);
   }, [loadData]);
 
@@ -188,14 +209,18 @@ export default function DashboardScreen() {
     }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     setStartDate(null);
     setEndDate(null);
     loadData();
     setShowFilter(false);
   };
 
-  const remainingBudget = income - expenses - dailySpends;
+  const fetchPortfolioBalance = async () => {
+    const db = await initDB();
+    const result = await db.getFirstAsync("SELECT balance FROM portfolio WHERE id = ?;", [1]);
+    return Number(parseFloat(result?.balance)) || 0;
+  };
 
   return (
     <ScrollView
@@ -278,7 +303,7 @@ export default function DashboardScreen() {
         <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total Income</Text><Text style={styles.summaryValue}>₹ {income.toFixed(2)}</Text></View>
         <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Recurring Expenses</Text><Text style={styles.summaryValue}>₹ {expenses.toFixed(2)}</Text></View>
         <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Daily Spending</Text><Text style={styles.summaryValue}>₹ {dailySpends.toFixed(2)}</Text></View>
-        <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Remaining Balance</Text><Text style={[styles.summaryValue, { color: remainingBudget >= 0 ? '#4caf50' : '#f44336' }]}>{remainingBudget >= 0 ? '₹ ' : '-₹ '}{Math.abs(remainingBudget).toFixed(2)}</Text></View>
+        <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Remaining Balance</Text><Text style={[styles.summaryValue, { color: portfolioBalance >= 0 ? '#4caf50' : '#f44336' }]}>{portfolioBalance >= 0 ? '₹ ' : '-₹ '}{Math.abs(portfolioBalance).toFixed(2)}</Text></View>
       </View>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Overview Chart</Text>

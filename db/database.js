@@ -18,7 +18,12 @@ export const initDB = async () => {
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY NOT NULL, value TEXT);
     `);
-    updateMetadata();
+    // portfolio table with Balance field
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS portfolio (id INTEGER PRIMARY KEY NOT NULL, name TEXT, balance REAL);
+    `);
+    // ensure metadata is up to date
+    await updateMetadata();
   }
   return db;
 };

@@ -1,8 +1,8 @@
 import { getDb, initDB } from "./database";
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
-import { Platform } from 'react-native';
-import * as Application from 'expo-application';
+import { Platform } from "react-native";
+import * as Application from "expo-application";
 
 /**
  * Updates the expenses table for recurring payments.
@@ -95,6 +95,46 @@ export async function resetDatabase() {
   await db.execAsync("DELETE FROM daily_spends;");
 }
 
+export async function create_updatePortfolioBalance(newBalance) {
+  const db = getDb();
+  await db.runAsync("INSERT OR REPLACE INTO portfolio (id, balance) VALUES (?, ?)", [1, newBalance]);
+}
+
+export async function calculatePortfolioValue() {
+  const db = getDb();
+  let totalIncome = 0;
+  let totalExpenses = 0;
+  let totalSpends = 0;
+
+  try {
+    const incomeRows = await db.getAllAsync(
+      "SELECT SUM(amount) as total FROM income;"
+    );
+    totalIncome = incomeRows[0]?.total || 0;
+  } catch (err) {
+    console.error("Failed to calculate total income:", err);
+  }
+  try {
+    const expenseRows = await db.getAllAsync(
+      "SELECT SUM(amount) as total FROM expenses;"
+    );
+    totalExpenses = expenseRows[0]?.total || 0;
+  } catch (err) {
+    console.error("Failed to calculate total expenses:", err);
+  }
+  try {
+    const spendRows = await db.getAllAsync(
+      "SELECT SUM(amount) as total FROM daily_spends;"
+    );
+    totalSpends = spendRows[0]?.total || 0;
+  } catch (err) {
+    console.error("Failed to calculate total daily spends:", err);
+  }
+  const netValue = totalIncome - (totalExpenses + totalSpends);
+
+  await create_updatePortfolioBalance(netValue);
+}
+
 /**
  * Export all app data (income, expenses, daily_spends) to a JSON file and
  * open the native share dialog so the user can save/send it.
@@ -140,7 +180,9 @@ export async function exportDatabase() {
       daily_spends = await db.getAllAsync("SELECT * FROM daily_spends");
     } catch (qerr) {
       console.error("Query failed: SELECT * FROM daily_spends", qerr);
-      throw new Error(`Failed to read daily_spends table: ${qerr.message || qerr}`);
+      throw new Error(
+        `Failed to read daily_spends table: ${qerr.message || qerr}`
+      );
     }
 
     let metadata = [];
@@ -168,7 +210,7 @@ export async function exportDatabase() {
     // Use documentDirectory which should be available with legacy import
     const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
     console.log("Exporting database to:", fileUri);
-    
+
     await FileSystem.writeAsStringAsync(fileUri, json, {
       encoding: FileSystem.EncodingType.UTF8,
     });
@@ -195,7 +237,10 @@ export async function exportDatabase() {
  *
  * Returns: { imported: { income: number, expenses: number, daily_spends: number }, fileUri }
  */
-export async function importDatabase(fileUri, options = { updateExisting: true }) {
+export async function importDatabase(
+  fileUri,
+  options = { updateExisting: true }
+) {
   console.log("importDatabase: running", fileUri, options);
   const { updateExisting } = options;
   const db = getDb();
@@ -219,7 +264,10 @@ export async function importDatabase(fileUri, options = { updateExisting: true }
     // Helper to check existence by id
     const existsById = async (table, id) => {
       if (id === undefined || id === null) return false;
-      const rows = await db.getAllAsync(`SELECT id FROM ${table} WHERE id = ?;`, [id]);
+      const rows = await db.getAllAsync(
+        `SELECT id FROM ${table} WHERE id = ?;`,
+        [id]
+      );
       return Array.isArray(rows) && rows.length > 0;
     };
 
@@ -237,11 +285,14 @@ export async function importDatabase(fileUri, options = { updateExisting: true }
     // false (used when updateExisting === false) we intentionally omit the id so
     // the database will assign a new autoincrement id and avoid PK conflicts.
     const insertRow = async (table, row, columns, includeId = true) => {
-      const hasId = includeId && Object.prototype.hasOwnProperty.call(row, "id");
+      const hasId =
+        includeId && Object.prototype.hasOwnProperty.call(row, "id");
       const cols = hasId ? ["id", ...columns] : columns;
       const placeholders = cols.map(() => "?").join(",");
       const values = cols.map((c) => (c === "id" ? row.id : row[c]));
-      const sql = `INSERT INTO ${table} (${cols.join(",")}) VALUES (${placeholders});`;
+      const sql = `INSERT INTO ${table} (${cols.join(
+        ","
+      )}) VALUES (${placeholders});`;
       await db.runAsync(sql, values);
     };
 
@@ -260,9 +311,16 @@ export async function importDatabase(fileUri, options = { updateExisting: true }
           // Insert when not updating existing or when id not present / doesn't exist
           // If updateExisting is false, do not include the provided id so a new
           // autoincrement id is created instead of trying to insert a conflicting id.
-          const includeIdForInsert = updateExisting && Object.prototype.hasOwnProperty.call(r, "id");
+          const includeIdForInsert =
+            updateExisting && Object.prototype.hasOwnProperty.call(r, "id");
           await insertRow(table, r, columns, includeIdForInsert);
-          summary[table === "income" ? "income" : table === "expenses" ? "expenses" : "daily_spends"] += 1;
+          summary[
+            table === "income"
+              ? "income"
+              : table === "expenses"
+              ? "expenses"
+              : "daily_spends"
+          ] += 1;
         } catch (err) {
           console.error(`Failed to upsert row into ${table}:`, r, err);
         }
@@ -282,7 +340,12 @@ export async function importDatabase(fileUri, options = { updateExisting: true }
     ]);
 
     // Process daily_spends rows
-    await upsertMany("daily_spends", daily_spends, ["category", "note", "amount", "date"]);
+    await upsertMany("daily_spends", daily_spends, [
+      "category",
+      "note",
+      "amount",
+      "date",
+    ]);
 
     console.log("importDatabase: finished", summary);
     return { imported: summary, fileUri };
