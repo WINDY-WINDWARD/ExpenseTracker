@@ -2,12 +2,14 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  Button,
   Alert,
   StyleSheet,
   Switch,
   ActivityIndicator,
+  ScrollView,
+  TouchableOpacity,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import {
   resetDatabase,
@@ -179,61 +181,156 @@ const SettingsScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Settings</Text>
-      <Button
-        title="Clear/Reset Database"
-        color="#FF3B30"
-        onPress={handleResetDb}
-      />
-      <View style={{ marginTop: 16 }}>
-        <Button
-          title="Export All Data (JSON)"
-          onPress={async () => {
-            try {
-              const uri = await exportDatabase();
-              Alert.alert("Export Complete", `Data exported to:\n${uri}`);
-            } catch (err) {
-              Alert.alert("Export Failed", "Could not export data.");
-            }
-          }}
-        />
-      </View>
-      <View style={{ marginTop: 20, alignItems: "center" }}>
-        <Text style={{ marginBottom: 8 }}>
-          Update existing records on import
-        </Text>
-        <Switch value={updateExisting} onValueChange={setUpdateExisting} />
-      </View>
+    <SafeAreaView style={styles.safe}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.title}>Settings</Text>
 
-      <View style={{ marginTop: 16 }}>
-        {importing ? (
-          <ActivityIndicator size="small" />
-        ) : (
-          <Button title="Import Data (JSON)" onPress={handleImport} />
-        )}
-      </View>
-      <View style={{ marginTop: 20 }}>
-        <Button
-          title="Inject Test Data"
-          onPress={() => navigation.navigate("LoadTestDataScreen")}
-        />
-      </View>
-    </View>
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Database</Text>
+          <Text style={styles.smallText}>
+            Reset the local database. This will permanently remove all saved
+            data.
+          </Text>
+
+          <TouchableOpacity
+            style={[styles.button, styles.dangerButton]}
+            onPress={handleResetDb}
+            accessibilityLabel="Clear or reset database"
+          >
+            <Text style={styles.buttonText}>Clear / Reset Database</Text>
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          <TouchableOpacity
+            style={styles.button}
+            onPress={async () => {
+              try {
+                const uri = await exportDatabase();
+                Alert.alert("Export Complete", `Data exported to:\n${uri}`);
+              } catch (err) {
+                Alert.alert("Export Failed", "Could not export data.");
+              }
+            }}
+          >
+            <Text style={styles.buttonText}>Export All Data (JSON)</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Import</Text>
+          <Text style={styles.smallText}>
+            Choose a JSON file exported from the app to import data. Toggle the
+            switch below to allow updates to existing records when IDs match.
+          </Text>
+
+          <View style={styles.switchRow}>
+            <Text style={styles.switchLabel}>Update existing records</Text>
+            <Switch value={updateExisting} onValueChange={setUpdateExisting} />
+          </View>
+
+          <View style={styles.importRow}>
+            {importing ? (
+              <ActivityIndicator size="small" />
+            ) : (
+              <TouchableOpacity style={styles.button} onPress={handleImport}>
+                <Text style={styles.buttonText}>Import Data (JSON)</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Development</Text>
+          <Text style={styles.smallText}>
+            Load test data for development and manual testing.
+          </Text>
+
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => navigation.navigate("LoadTestDataScreen")}
+          >
+            <Text style={styles.buttonText}>Inject Test Data</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safe: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: "#f6f7fb",
+  },
+  container: {
+    padding: 20,
+    paddingBottom: 40,
+    alignItems: "stretch",
   },
   title: {
     fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 24,
+    fontWeight: "700",
+    marginBottom: 16,
+    color: "#0f172a",
+    alignSelf: "center",
+  },
+  card: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 14,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 6,
+    color: "#0f172a",
+  },
+  smallText: {
+    fontSize: 13,
+    color: "#475569",
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  button: {
+    backgroundColor: "#2563eb",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  dangerButton: {
+    backgroundColor: "#ef4444",
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#eef2f7",
+    marginVertical: 12,
+  },
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 6,
+  },
+  switchLabel: {
+    fontSize: 14,
+    color: "#0f172a",
+  },
+  importRow: {
+    marginTop: 6,
+    alignItems: "flex-start",
   },
 });
 

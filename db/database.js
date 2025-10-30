@@ -1,5 +1,4 @@
 import * as SQLite from "expo-sqlite";
-import { updateMetadata } from "./updateData";
 
 let db;
 
@@ -23,6 +22,20 @@ export const initDB = async () => {
   }
   return db;
 };
+
+export async function updateMetadata() {
+  const db = getDb();
+  const fields = {
+    "version": "0.0.1"
+  };
+  for (const [key, value] of Object.entries(fields)) {
+    await db.runAsync(
+      `INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?);`,
+      [key, value]
+    );
+  }
+}
+
 
 export const getDb = () => {
   if (!db) {

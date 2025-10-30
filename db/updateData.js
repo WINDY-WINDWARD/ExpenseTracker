@@ -1,6 +1,8 @@
-import { getDb } from "./database";
+import { getDb, initDB } from "./database";
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from "expo-sharing";
+import { Platform } from 'react-native';
+import * as Application from 'expo-application';
 
 /**
  * Updates the expenses table for recurring payments.
@@ -99,12 +101,56 @@ export async function resetDatabase() {
  * Returns the file URI on success.
  */
 export async function exportDatabase() {
-  const db = getDb();
+  // Ensure DB is initialized. getDb() throws if initDB wasn't called.
+  let db;
   try {
-    const income = await db.getAllAsync("SELECT * FROM income;");
-    const expenses = await db.getAllAsync("SELECT * FROM expenses;");
-    const daily_spends = await db.getAllAsync("SELECT * FROM daily_spends;");
-    const metadata = await db.getAllAsync("SELECT * FROM metadata;");
+    db = getDb();
+  } catch (e) {
+    // Try to initialize the DB and get it again
+    try {
+      await initDB();
+      db = getDb();
+    } catch (initErr) {
+      console.error("Failed to initialize DB before export:", initErr);
+      throw initErr;
+    }
+  }
+
+  try {
+    // Query each table separately and wrap with try/catch so we can
+    // provide a helpful error message if a specific query fails.
+    let income;
+    try {
+      income = await db.getAllAsync("SELECT * FROM income");
+    } catch (qerr) {
+      console.error("Query failed: SELECT * FROM income", qerr);
+      throw new Error(`Failed to read income table: ${qerr.message || qerr}`);
+    }
+
+    let expenses;
+    try {
+      expenses = await db.getAllAsync("SELECT * FROM expenses");
+    } catch (qerr) {
+      console.error("Query failed: SELECT * FROM expenses", qerr);
+      throw new Error(`Failed to read expenses table: ${qerr.message || qerr}`);
+    }
+
+    let daily_spends;
+    try {
+      daily_spends = await db.getAllAsync("SELECT * FROM daily_spends");
+    } catch (qerr) {
+      console.error("Query failed: SELECT * FROM daily_spends", qerr);
+      throw new Error(`Failed to read daily_spends table: ${qerr.message || qerr}`);
+    }
+
+    let metadata = [];
+    try {
+      metadata = await db.getAllAsync("SELECT * FROM metadata");
+    } catch (qerr) {
+      // metadata table may not exist on older installs; warn but continue
+      console.warn("Could not read metadata table (continuing):", qerr);
+      metadata = [];
+    }
 
     const payload = {
       exportedAt: new Date().toISOString(),
@@ -120,7 +166,8 @@ export async function exportDatabase() {
       .replace(/[:.]/g, "-")}.json`;
 
     // Use documentDirectory which should be available with legacy import
-    const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+    const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+    console.log("Exporting database to:", fileUri);
     
     await FileSystem.writeAsStringAsync(fileUri, json, {
       encoding: FileSystem.EncodingType.UTF8,
@@ -242,18 +289,5 @@ export async function importDatabase(fileUri, options = { updateExisting: true }
   } catch (err) {
     console.error("❌ Failed to import database:", err);
     throw err;
-  }
-}
-
-export async function updateMetadata() {
-  const db = getDb();
-  const fields = {
-    "version": "0.0.1"
-  };
-  for (const [key, value] of Object.entries(fields)) {
-    await db.runAsync(
-      `INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?);`,
-      [key, value]
-    );
   }
 }
