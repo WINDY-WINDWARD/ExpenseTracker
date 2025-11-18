@@ -14,7 +14,11 @@
       "backgroundColor": "#ffffff"
     },
     "android": {
-      "package": "com.anonymous.expensetracker"
+      "package": "com.anonymous.expensetracker",
+    "permissions": [
+      "READ_SMS",
+      "RECEIVE_SMS"
+    ]
     }
   }
 }

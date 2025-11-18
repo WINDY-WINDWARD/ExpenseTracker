@@ -230,6 +230,12 @@ export default function DashboardScreen() {
       }
     >
       <Text style={styles.header}>Dashboard</Text>
+      <TouchableOpacity
+        style={styles.smsImportButton}
+        onPress={() => navigation.navigate('SMSImportScreen')}
+      >
+        <Text style={styles.smsImportButtonText}>📱 Import from SMS</Text>
+      </TouchableOpacity>
       <View style={styles.filterRow}>
         <TouchableOpacity
           style={styles.filterButton}
@@ -429,5 +435,24 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 30,
     alignItems: 'center',
+  },
+  smsImportButton: {
+    backgroundColor: '#00b894',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    alignSelf: 'center',
+    shadowColor: '#636e72',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  smsImportButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });

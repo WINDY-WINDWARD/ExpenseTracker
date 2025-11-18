@@ -15,6 +15,7 @@ import AddSpendScreen from "./screens/AddSpendScreen";
 import LoadTestData from "./screens/loadTestData";
 import SettingsScreen from "./screens/SettingsScreen";
 import CategoriesScreen from './screens/CategoriesScreen';
+import SMSImportScreen from './screens/SMSImportScreen';
 import { enableScreens } from 'react-native-screens';
 
 enableScreens();
@@ -28,6 +29,7 @@ export default function App() {
         <RootStack.Screen name="MainTabs" component={MainTabs} />
         <RootStack.Screen name="LoadTestDataScreen" component={LoadTestData} />
         <RootStack.Screen name="CategoriesScreen" component={CategoriesScreen} />
+        <RootStack.Screen name="SMSImportScreen" component={SMSImportScreen} />
       </RootStack.Navigator>
     </NavigationContainer>
   );
@@ -68,7 +70,6 @@ function MainTabs() {
       <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );
-// Stack navigator for Expenses tab to allow navigation to AddExpenseScreen
 }
 
 const ExpensesStack = () => {

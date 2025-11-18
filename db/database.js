@@ -52,6 +52,9 @@ async function ensureDefaultCategories() {
         'Utilities',
         'Entertainment',
         'Health',
+        'UPI Payment',
+        'Credit Card',
+        'Auto-debit',
         'Other',
       ];
       for (const name of defaults) {

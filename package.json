@@ -11,6 +11,7 @@
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
     "@expo/vector-icons": "^15.0.3",
+    "@maniac-tech/react-native-expo-read-sms": "^9.0.2-alpha",
     "@react-native-community/datetimepicker": "^8.5.0",
     "@react-navigation/bottom-tabs": "^7.7.2",
     "@react-navigation/native": "^7.1.19",
