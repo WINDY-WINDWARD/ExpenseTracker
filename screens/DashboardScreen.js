@@ -4,12 +4,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, StyleSheet, ScrollView, Button, TouchableOpacity } from 'react-native';
 import { RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { initDB } from '../db/database';
+import { initDB, getAllAccounts, calculateCreditCardUsage } from '../db/database';
 import { Svg, G, Text as SvgText } from 'react-native-svg';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import PieChart from '../components/PieChart';
 import LineChart from '../components/LineChart';
-import { updateRecurringExpenses, calculatePortfolioValue } from '../db/updateData';
+import { updateRecurringExpenses } from '../db/updateData';
 
 
 
@@ -27,7 +27,9 @@ export default function DashboardScreen() {
   const [monthlyIncome, setMonthlyIncome] = useState([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState([]);
   const [monthlySpends, setMonthlySpends] = useState([]);
-  const [portfolioBalance, setPortfolioBalance] = useState(0);
+  const [accounts, setAccounts] = useState([]);
+  const [totalSavings, setTotalSavings] = useState(0);
+  const [totalCreditAvailable, setTotalCreditAvailable] = useState(0);
   const navigation = useNavigation();
 
   // Helper to format date as yyyy-mm-dd
@@ -163,16 +165,38 @@ export default function DashboardScreen() {
     setMonthlySpends(spendsSeries);
     setMonthlyExpenses(expensesSeries);
 
+    // Load accounts and calculate balances
+    await loadAccountBalances();
+
   }, [startDate, endDate]);
+
+  const loadAccountBalances = async () => {
+    try {
+      const allAccounts = await getAllAccounts();
+      setAccounts(allAccounts);
+
+      // Calculate total savings
+      const savingsAccounts = allAccounts.filter(a => a.account_type === 'savings');
+      const savingsTotal = savingsAccounts.reduce((sum, a) => sum + (a.current_balance || 0), 0);
+      setTotalSavings(savingsTotal);
+
+      // Calculate total credit available
+      const creditCards = allAccounts.filter(a => a.account_type === 'credit_card');
+      let creditAvailable = 0;
+      for (const card of creditCards) {
+        const usage = await calculateCreditCardUsage(card.id);
+        creditAvailable += usage.available;
+      }
+      setTotalCreditAvailable(creditAvailable);
+    } catch (err) {
+      console.error('Error loading account balances:', err);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
     const run = async () => {
       await loadData();
-      await calculatePortfolioValue();
-      if (isMounted) {
-        setPortfolioBalance(await fetchPortfolioBalance());
-      }
     };
     run();
     return () => { isMounted = false; };
@@ -183,10 +207,6 @@ export default function DashboardScreen() {
       let isActive = true;
       const run = async () => {
         await loadData();
-        await calculatePortfolioValue();
-        if (isActive) {
-          setPortfolioBalance(await fetchPortfolioBalance());
-        }
       };
       run();
       return () => { isActive = false; };
@@ -197,8 +217,6 @@ export default function DashboardScreen() {
     setRefreshing(true);
     await loadData();
     await updateRecurringExpenses();
-    await calculatePortfolioValue();
-    setPortfolioBalance(await fetchPortfolioBalance());
     setRefreshing(false);
   }, [loadData]);
 
@@ -216,11 +234,7 @@ export default function DashboardScreen() {
     setShowFilter(false);
   };
 
-  const fetchPortfolioBalance = async () => {
-    const db = await initDB();
-    const result = await db.getFirstAsync("SELECT balance FROM portfolio WHERE id = ?;", [1]);
-    return Number(parseFloat(result?.balance)) || 0;
-  };
+
 
   return (
     <ScrollView
@@ -230,13 +244,13 @@ export default function DashboardScreen() {
       }
     >
       <Text style={styles.header}>Dashboard</Text>
-      <TouchableOpacity
-        style={styles.smsImportButton}
-        onPress={() => navigation.navigate('SMSImportScreen')}
-      >
-        <Text style={styles.smsImportButtonText}>📱 Import from SMS</Text>
-      </TouchableOpacity>
       <View style={styles.filterRow}>
+        <TouchableOpacity
+          style={styles.smsImportButton}
+          onPress={() => navigation.navigate('SMSImportScreen')}
+        >
+          <Text style={styles.smsImportButtonText}>📱 Import from SMS</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.filterButton}
           onPress={() => setShowFilter((v) => !v)}
@@ -309,8 +323,26 @@ export default function DashboardScreen() {
         <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total Income</Text><Text style={styles.summaryValue}>₹ {income.toFixed(2)}</Text></View>
         <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Recurring Expenses</Text><Text style={styles.summaryValue}>₹ {expenses.toFixed(2)}</Text></View>
         <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Daily Spending</Text><Text style={styles.summaryValue}>₹ {dailySpends.toFixed(2)}</Text></View>
-        <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Remaining Balance</Text><Text style={[styles.summaryValue, { color: portfolioBalance >= 0 ? '#4caf50' : '#f44336' }]}>{portfolioBalance >= 0 ? '₹ ' : '-₹ '}{Math.abs(portfolioBalance).toFixed(2)}</Text></View>
+        <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total Savings Balance</Text><Text style={[styles.summaryValue, { color: '#4caf50' }]}>₹ {totalSavings.toFixed(2)}</Text></View>
+        <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Credit Available</Text><Text style={[styles.summaryValue, { color: '#0984e3' }]}>₹ {totalCreditAvailable.toFixed(2)}</Text></View>
       </View>
+
+      {/* Accounts Breakdown */}
+      {accounts.length > 0 && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Accounts</Text>
+          {accounts.map((account) => (
+            <View key={account.id} style={styles.accountRow}>
+              <Text style={styles.accountName}>{account.name}</Text>
+              {account.account_type === 'savings' ? (
+                <Text style={styles.accountBalance}>₹ {(account.current_balance || 0).toFixed(2)}</Text>
+              ) : (
+                <Text style={styles.accountBalance}>Limit: ₹ {(account.credit_limit || 0).toFixed(2)}</Text>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Overview Chart</Text>
         <PieChart
@@ -454,5 +486,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  accountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#dfe6e9',
+  },
+  accountName: {
+    fontSize: 15,
+    color: '#2d3436',
+    fontWeight: '500',
+  },
+  accountBalance: {
+    fontSize: 15,
+    color: '#0984e3',
+    fontWeight: 'bold',
   },
 });

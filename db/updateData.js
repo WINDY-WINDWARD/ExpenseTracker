@@ -94,51 +94,15 @@ export async function resetDatabase() {
     await db.execAsync("DELETE FROM income;");
     await db.execAsync("DELETE FROM expenses;");
     await db.execAsync("DELETE FROM daily_spends;");
-    await db.execAsync("DELETE FROM portfolio;");
+    await db.execAsync("DELETE FROM accounts;");
+    await db.execAsync("DELETE FROM imported_sms;");
   } catch (e) {
     console.warn('Could not clear tables during reset:', e);
   }
 }
 
-export async function create_updatePortfolioBalance(newBalance) {
-  const db = getDb();
-  await db.runAsync("INSERT OR REPLACE INTO portfolio (id, balance) VALUES (?, ?)", [1, newBalance]);
-}
-
-export async function calculatePortfolioValue() {
-  const db = getDb();
-  let totalIncome = 0;
-  let totalExpenses = 0;
-  let totalSpends = 0;
-
-  try {
-    const incomeRows = await db.getAllAsync(
-      "SELECT SUM(amount) as total FROM income;"
-    );
-    totalIncome = incomeRows[0]?.total || 0;
-  } catch (err) {
-    console.error("Failed to calculate total income:", err);
-  }
-  try {
-    const expenseRows = await db.getAllAsync(
-      "SELECT SUM(amount) as total FROM expenses;"
-    );
-    totalExpenses = expenseRows[0]?.total || 0;
-  } catch (err) {
-    console.error("Failed to calculate total expenses:", err);
-  }
-  try {
-    const spendRows = await db.getAllAsync(
-      "SELECT SUM(amount) as total FROM daily_spends;"
-    );
-    totalSpends = spendRows[0]?.total || 0;
-  } catch (err) {
-    console.error("Failed to calculate total daily spends:", err);
-  }
-  const netValue = totalIncome - (totalExpenses + totalSpends);
-
-  await create_updatePortfolioBalance(netValue);
-}
+// Portfolio functions removed - now using account-based tracking
+// See getAllAccounts() and calculateCreditCardUsage() in database.js
 
 /**
  * Export all app data (income, expenses, daily_spends) to a JSON file and
@@ -336,8 +300,8 @@ export async function importDatabase(
             table === "income"
               ? "income"
               : table === "expenses"
-              ? "expenses"
-              : "daily_spends"
+                ? "expenses"
+                : "daily_spends"
           ] += 1;
         } catch (err) {
           console.error(`Failed to upsert row into ${table}:`, r, err);
@@ -348,9 +312,9 @@ export async function importDatabase(
     // Process income rows
     await upsertMany("income", income, ["source", "amount", "date"]);
 
-  // Process categories rows first so names exist for reference if app wants to
-  // maintain referential integrity outside of the DB (app currently stores names in other tables).
-  await upsertMany("categories", categories, ["name"]);
+    // Process categories rows first so names exist for reference if app wants to
+    // maintain referential integrity outside of the DB (app currently stores names in other tables).
+    await upsertMany("categories", categories, ["name"]);
 
     // Process expenses rows
     await upsertMany("expenses", expenses, [

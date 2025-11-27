@@ -55,10 +55,12 @@ export default function DailySpendsScreen() {
 
   // By default, load last 7 days
   const fetchSpends = async (database, filterStart, filterEnd) => {
-    let query = "SELECT * FROM daily_spends ";
+    let query = `SELECT ds.*, a.name as account_name 
+                 FROM daily_spends ds 
+                 LEFT JOIN accounts a ON ds.account_id = a.id `;
     let params = [];
     if (filterStart && filterEnd) {
-      query += "WHERE date BETWEEN ? AND ? ";
+      query += "WHERE ds.date BETWEEN ? AND ? ";
       params = [filterStart, filterEnd];
     } else {
       // Default: last 7 days
@@ -66,10 +68,10 @@ export default function DailySpendsScreen() {
       const sevenDaysAgo = new Date(today);
       sevenDaysAgo.setDate(today.getDate() - 6);
       const format = (d) => d.toISOString().slice(0, 10);
-      query += "WHERE date BETWEEN ? AND ? ";
+      query += "WHERE ds.date BETWEEN ? AND ? ";
       params = [format(sevenDaysAgo), format(today)];
     }
-    query += "ORDER BY date DESC;";
+    query += "ORDER BY ds.date DESC;";
     const result = await (database || db).getAllAsync(query, params);
     setSpendsList(result);
   };
@@ -180,6 +182,11 @@ export default function DailySpendsScreen() {
                       <Text style={styles.entryDetails}>
                         ₹ {spend.amount} {spend.note ? `(${spend.note})` : ""}
                       </Text>
+                      {spend.account_name && (
+                        <Text style={styles.accountText}>
+                          Account: {spend.account_name}
+                        </Text>
+                      )}
                     </View>
                     <View style={styles.actionColumn}>
                       <View style={{ width: '100%' }}>

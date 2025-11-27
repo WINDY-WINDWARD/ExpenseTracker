@@ -11,7 +11,8 @@ import {
   Platform,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { initDB } from "../db/database";
+import { Picker } from "@react-native-picker/picker";
+import { initDB, getAllAccounts, getDefaultAccount } from "../db/database";
 import Card from "../components/Card";
 
 export default function IncomeScreen() {
@@ -28,6 +29,8 @@ export default function IncomeScreen() {
   const [db, setDb] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [accounts, setAccounts] = useState([]);
+  const [selectedAccountId, setSelectedAccountId] = useState(null);
 
 
   useEffect(() => {
@@ -35,6 +38,7 @@ export default function IncomeScreen() {
       const database = await initDB();
       setDb(database);
       fetchIncome(database);
+      await loadAccounts();
     };
     loadDb();
   }, []);
@@ -52,8 +56,24 @@ export default function IncomeScreen() {
     fetchIncome(db).finally(() => setRefreshing(false));
   }, [db]);
 
+  const loadAccounts = async () => {
+    const accountsList = await getAllAccounts();
+    setAccounts(accountsList.filter(a => a.account_type === 'savings'));
+
+    // Set default account
+    if (!selectedAccountId && accountsList.length > 0) {
+      const defaultAcc = await getDefaultAccount('savings');
+      setSelectedAccountId(defaultAcc?.id || accountsList[0]?.id);
+    }
+  };
+
   const fetchIncome = async (database) => {
-    const result = await (database || db).getAllAsync("SELECT * FROM income;");
+    const result = await (database || db).getAllAsync(
+      `SELECT i.*, a.name as account_name 
+       FROM income i 
+       LEFT JOIN accounts a ON i.account_id = a.id 
+       ORDER BY i.date DESC;`
+    );
     setIncomeList(result);
   };
 
@@ -66,11 +86,19 @@ export default function IncomeScreen() {
       return;
     }
 
+    if (!selectedAccountId) {
+      Alert.alert(
+        "Validation Error",
+        "Please select an account."
+      );
+      return;
+    }
+
     const formattedDate = date.toISOString().split("T")[0];
 
     await db.runAsync(
-      "INSERT INTO income (source, amount, date) VALUES (?, ?, ?);",
-      [source, parseFloat(amount), formattedDate]
+      "INSERT INTO income (source, amount, date, account_id) VALUES (?, ?, ?, ?);",
+      [source, parseFloat(amount), formattedDate, selectedAccountId]
     );
 
     setSource("");
@@ -84,7 +112,7 @@ export default function IncomeScreen() {
       setDate(selectedDate);
     }
     setShowDatePicker(false);
-  } 
+  }
 
   return (
     <View style={styles.container}>
@@ -108,6 +136,23 @@ export default function IncomeScreen() {
           placeholderTextColor="rgba(7, 8, 8, 1)"
         />
 
+        <Text style={styles.label}>Account</Text>
+        <View style={[styles.input, { padding: 0 }]}>
+          <Picker
+            selectedValue={selectedAccountId}
+            onValueChange={(itemValue) => setSelectedAccountId(itemValue)}
+            style={{ height: 50 }}
+          >
+            {accounts.map((account) => (
+              <Picker.Item
+                key={account.id}
+                label={account.name}
+                value={account.id}
+              />
+            ))}
+          </Picker>
+        </View>
+
         <Text style={styles.label}>Date</Text>
         <View style={styles.roundedButton}>
           <Button
@@ -124,23 +169,30 @@ export default function IncomeScreen() {
           />
         )}
 
-        <View style={[styles.roundedButton, { marginTop: 16 }]}> 
+        <View style={[styles.roundedButton, { marginTop: 16 }]}>
           <Button title="Add Income" onPress={addIncome} />
         </View>
       </Card>
 
       {/* Income History Card */}
-      <Card style={{maxHeight: '49%', paddingTop: 8}}>
+      <Card style={{ maxHeight: '49%', paddingTop: 8 }}>
         <Text style={styles.listHeader}>Income History</Text>
         <FlatList
           data={incomeList}
           keyExtractor={(item) => item.id.toString()}
           renderItem={({ item }) => (
-            <Card style={{marginHorizontal: 4}}>
+            <Card style={{ marginHorizontal: 4 }}>
               <View style={styles.listRow}>
                 <View style={styles.infoColumn}>
                   <Text style={styles.entrySource}>{item.source}</Text>
-                  <Text style={styles.entryDetails}>₹ {item.amount} on {item.date}</Text>
+                  <Text style={styles.entryDetails}>
+                    ₹ {item.amount} on {item.date}
+                  </Text>
+                  {item.account_name && (
+                    <Text style={styles.accountText}>
+                      Account: {item.account_name}
+                    </Text>
+                  )}
                 </View>
                 <View style={styles.actionColumn}>
                   <Button title="Delete" color="#d63031" onPress={() => deleteIncome(item.id)} />
@@ -157,6 +209,11 @@ export default function IncomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  accountText: {
+    fontSize: 13,
+    color: '#0984e3',
+    marginTop: 2,
+  },
   entrySource: {
     fontSize: 17,
     fontWeight: 'bold',

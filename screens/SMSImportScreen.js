@@ -13,7 +13,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useSMSReader } from '../hooks/useSMSReader';
 import { parseSMS } from '../utils/smsParser';
-import { initDB } from '../db/database';
+import { initDB, findOrCreateAccount, getDefaultAccount } from '../db/database';
 
 export default function SMSImportScreen() {
   const navigation = useNavigation();
@@ -74,24 +74,186 @@ export default function SMSImportScreen() {
     try {
       const db = await initDB();
 
-      // Insert into daily_spends table
-      await db.runAsync(
-        'INSERT INTO daily_spends (date, category, amount, description) VALUES (?, ?, ?, ?);',
-        [
-          transaction.date.split('T')[0], // Extract date part
-          transaction.category,
-          transaction.amount,
-          `${transaction.merchant} (from SMS)`,
-        ]
+      // Check if SMS already imported
+      const existing = await db.getAllAsync(
+        'SELECT id FROM imported_sms WHERE sms_id = ?;',
+        [transaction.smsId]
       );
 
-      Alert.alert('Success', 'Transaction imported successfully!');
+      if (existing && existing.length > 0) {
+        Alert.alert('Already Imported', 'This transaction has already been imported.');
+        setImporting(false);
+        return;
+      }
+
+      // Determine account
+      let accountId;
+      if (transaction.accountInfo) {
+        // Auto-create or find account
+        accountId = await findOrCreateAccount(
+          transaction.accountInfo.accountNumber,
+          transaction.accountInfo.bankName,
+          transaction.accountInfo.accountType
+        );
+      } else {
+        // Use default account
+        const defaultAccount = await getDefaultAccount(
+          transaction.type === 'income' ? 'savings' : 'savings'
+        );
+        accountId = defaultAccount?.id;
+
+        if (!accountId) {
+          Alert.alert('Error', 'No default account found. Please create an account first.');
+          setImporting(false);
+          return;
+        }
+      }
+
+      let result;
+      let incomeId = null;
+      let dailySpendId = null;
+
+      if (transaction.type === 'income') {
+        // Insert into income table
+        result = await db.runAsync(
+          'INSERT INTO income (source, amount, date, account_id) VALUES (?, ?, ?, ?);',
+          [
+            transaction.merchant,
+            transaction.amount,
+            transaction.date.split('T')[0],
+            accountId
+          ]
+        );
+        incomeId = result.lastInsertRowId;
+      } else {
+        // Insert into daily_spends table
+        result = await db.runAsync(
+          'INSERT INTO daily_spends (date, category, amount, note, account_id) VALUES (?, ?, ?, ?, ?);',
+          [
+            transaction.date.split('T')[0],
+            transaction.category,
+            transaction.amount,
+            `${transaction.merchant} (from SMS)`,
+            accountId
+          ]
+        );
+        dailySpendId = result.lastInsertRowId;
+      }
+
+      // Track imported SMS
+      await db.runAsync(
+        'INSERT INTO imported_sms (sms_id, imported_at, account_id, income_id, daily_spend_id) VALUES (?, ?, ?, ?, ?);',
+        [transaction.smsId, new Date().toISOString(), accountId, incomeId, dailySpendId]
+      );
+
+      Alert.alert('Success', `${transaction.type === 'income' ? 'Income' : 'Expense'} imported successfully!`);
 
       // Remove from list
       setTransactions((prev) => prev.filter((t) => t.smsId !== transaction.smsId));
     } catch (err) {
       console.error('Error importing transaction:', err);
-      Alert.alert('Error', 'Failed to import transaction');
+      Alert.alert('Error', `Failed to import transaction: ${err.message}`);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleImportAll = async () => {
+    setImporting(true);
+    try {
+      const db = await initDB();
+
+      let imported = 0;
+      let skipped = 0;
+      let failed = 0;
+
+      for (const transaction of transactions) {
+        try {
+          // Check if SMS already imported
+          const existing = await db.getAllAsync(
+            'SELECT id FROM imported_sms WHERE sms_id = ?;',
+            [transaction.smsId]
+          );
+
+          if (existing && existing.length > 0) {
+            skipped++;
+            continue;
+          }
+
+          // Determine account
+          let accountId;
+          if (transaction.accountInfo) {
+            // Auto-create or find account
+            accountId = await findOrCreateAccount(
+              transaction.accountInfo.accountNumber,
+              transaction.accountInfo.bankName,
+              transaction.accountInfo.accountType
+            );
+          } else {
+            // Use default account
+            const defaultAccount = await getDefaultAccount('savings');
+            accountId = defaultAccount?.id;
+
+            if (!accountId) {
+              console.warn('No default account found, skipping transaction');
+              failed++;
+              continue;
+            }
+          }
+
+          let result;
+          let incomeId = null;
+          let dailySpendId = null;
+
+          if (transaction.type === 'income') {
+            // Insert into income table
+            result = await db.runAsync(
+              'INSERT INTO income (source, amount, date, account_id) VALUES (?, ?, ?, ?);',
+              [
+                transaction.merchant,
+                transaction.amount,
+                transaction.date.split('T')[0],
+                accountId
+              ]
+            );
+            incomeId = result.lastInsertRowId;
+          } else {
+            // Insert into daily_spends table
+            result = await db.runAsync(
+              'INSERT INTO daily_spends (date, category, amount, note, account_id) VALUES (?, ?, ?, ?, ?);',
+              [
+                transaction.date.split('T')[0],
+                transaction.category,
+                transaction.amount,
+                `${transaction.merchant} (from SMS)`,
+                accountId
+              ]
+            );
+            dailySpendId = result.lastInsertRowId;
+          }
+
+          // Track imported SMS
+          await db.runAsync(
+            'INSERT INTO imported_sms (sms_id, imported_at, account_id, income_id, daily_spend_id) VALUES (?, ?, ?, ?, ?);',
+            [transaction.smsId, new Date().toISOString(), accountId, incomeId, dailySpendId]
+          );
+
+          imported++;
+        } catch (err) {
+          console.error('Error importing transaction:', transaction, err);
+          failed++;
+        }
+      }
+
+      // Show summary
+      const message = `Imported: ${imported}\nSkipped (already imported): ${skipped}${failed > 0 ? `\nFailed: ${failed}` : ''}`;
+      Alert.alert('Import Complete', message);
+
+      // Reload transactions to refresh the list
+      await loadTransactions();
+    } catch (err) {
+      console.error('Error in bulk import:', err);
+      Alert.alert('Error', 'Failed to complete bulk import');
     } finally {
       setImporting(false);
     }
@@ -156,7 +318,14 @@ export default function SMSImportScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>SMS Import</Text>
+      <View style={styles.headerContainer}>
+        <Text style={styles.header}>SMS Import</Text>
+        {transactions.length > 0 && !importing && (
+          <TouchableOpacity style={styles.importAllButton} onPress={handleImportAll}>
+            <Text style={styles.importAllButtonText}>Import All</Text>
+          </TouchableOpacity>
+        )}
+      </View>
       {isLoading ? (
         <ActivityIndicator size="large" color="#0984e3" style={styles.loader} />
       ) : transactions.length === 0 ? (
@@ -187,10 +356,25 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 18,
     color: '#2d3436',
-    textAlign: 'center',
     letterSpacing: 1,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  importAllButton: {
+    backgroundColor: '#4caf50',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  importAllButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   permissionCard: {
     backgroundColor: '#fff',
