@@ -23,7 +23,10 @@ import {
 } from '../db/database';
 import Card from '../components/Card';
 
-export default function AccountsScreen() {
+// AccountsScreen: view and manage existing accounts
+// Accepts `navigation` prop from React Navigation so the Add Account
+// screen can be opened.
+export default function AccountsScreen({ navigation }) {
     const [accounts, setAccounts] = useState([]);
     const [refreshing, setRefreshing] = useState(false);
     const [editModalVisible, setEditModalVisible] = useState(false);
@@ -237,6 +240,16 @@ export default function AccountsScreen() {
                 Manage your savings accounts and credit cards
             </Text>
 
+            {/* Add Account button - opens the AddAccount screen */}
+            <View style={styles.addButtonRow}>
+                <TouchableOpacity
+                    style={styles.addButton}
+                    onPress={() => navigation.navigate('AddAccount')}
+                >
+                    <Text style={styles.addButtonText}>+ Add Account</Text>
+                </TouchableOpacity>
+            </View>
+
             <FlatList
                 data={accounts}
                 keyExtractor={(item) => item.id.toString()}
@@ -330,6 +343,7 @@ const styles = StyleSheet.create({
     header: {
         fontSize: 28,
         fontWeight: 'bold',
+        marginTop: 8,
         marginBottom: 8,
         color: '#2d3436',
         textAlign: 'center',
@@ -487,6 +501,21 @@ const styles = StyleSheet.create({
         backgroundColor: '#00b894',
     },
     modalButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    addButtonRow: {
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    addButton: {
+        backgroundColor: '#0984e3',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 10,
+    },
+    addButtonText: {
         color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',

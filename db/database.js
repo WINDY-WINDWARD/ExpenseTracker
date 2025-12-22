@@ -381,6 +381,44 @@ export const setDefaultAccount = async (accountId) => {
   );
 };
 
+/**
+ * Add a new account record to the database.
+ * This helper centralizes account creation so screens can call it
+ * instead of running SQL directly.
+ *
+ * The `is_default` and `auto_created` flags are stored as integers
+ * (1 = true, 0 = false) to match the rest of the schema.
+ */
+export const addAccount = async ({
+  name,
+  account_number = null,
+  account_type = 'savings',
+  bank_name = null,
+  current_balance = 0,
+  credit_limit = 0,
+  is_default = 0,
+  auto_created = 0,
+}) => {
+  const db = getDb();
+  const now = new Date().toISOString();
+  const result = await db.runAsync(
+    `INSERT INTO accounts (name, account_number, account_type, bank_name, current_balance, credit_limit, is_default, auto_created, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+    [
+      name,
+      account_number,
+      account_type,
+      bank_name,
+      current_balance,
+      credit_limit,
+      is_default,
+      auto_created,
+      now,
+      now,
+    ]
+  );
+  return result.lastInsertRowId;
+};
+
 // Exposed helpers for categories
 export const getCategories = async () => {
   const db = getDb();

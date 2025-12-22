@@ -17,6 +17,7 @@ import SettingsScreen from "./screens/SettingsScreen";
 import CategoriesScreen from './screens/CategoriesScreen';
 import SMSImportScreen from './screens/SMSImportScreen';
 import AccountsScreen from './screens/AccountsScreen';
+import AddAccountScreen from './screens/AddAccountScreen';
 import { enableScreens } from 'react-native-screens';
 
 enableScreens();
@@ -32,6 +33,7 @@ export default function App() {
         <RootStack.Screen name="CategoriesScreen" component={CategoriesScreen} />
         <RootStack.Screen name="SMSImportScreen" component={SMSImportScreen} />
         <RootStack.Screen name="AccountsScreen" component={AccountsScreen} />
+        <RootStack.Screen name="AddAccount" component={AddAccountScreen} />
       </RootStack.Navigator>
     </NavigationContainer>
   );
