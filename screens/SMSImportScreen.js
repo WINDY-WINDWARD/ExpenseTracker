@@ -10,6 +10,8 @@ import {
   FlatList,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
 import { useSMSReader } from '../hooks/useSMSReader';
 import { parseSMS } from '../utils/smsParser';
@@ -20,10 +22,15 @@ export default function SMSImportScreen() {
   const { hasPermission, isLoading, error, requestPermissions, readSMS } = useSMSReader();
   const [transactions, setTransactions] = useState([]);
   const [importing, setImporting] = useState(false);
+  const [filterType, setFilterType] = useState('today');
+  const [customDate, setCustomDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
-    loadTransactions();
-  }, []);
+    if (hasPermission) {
+      loadTransactions();
+    }
+  }, [filterType, customDate, hasPermission]);
 
   const loadTransactions = async () => {
     try {
@@ -31,7 +38,32 @@ export default function SMSImportScreen() {
 
       // Only try to read SMS if permissions are granted
       if (hasPermission) {
-        smsMessages = await readSMS({ maxCount: 100, daysBack: 60 });
+        // Calculate minDate based on filter type
+        let minDate;
+        const now = new Date();
+
+        switch (filterType) {
+          case 'today':
+            // Start of today (midnight)
+            minDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+            break;
+          case 'week':
+            // 7 days ago
+            minDate = now.getTime() - (7 * 24 * 60 * 60 * 1000);
+            break;
+          case 'month':
+            // 30 days ago
+            minDate = now.getTime() - (30 * 24 * 60 * 60 * 1000);
+            break;
+          case 'custom':
+            // Start of selected date (midnight)
+            minDate = new Date(customDate.getFullYear(), customDate.getMonth(), customDate.getDate()).getTime();
+            break;
+          default:
+            minDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        }
+
+        smsMessages = await readSMS({ maxCount: 999, minDate });
       } else {
         // No permission just return empty
         setTransactions([]);
@@ -290,68 +322,200 @@ export default function SMSImportScreen() {
 
   if (!hasPermission) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.header}>SMS Import</Text>
-        <View style={styles.permissionCard}>
-          {Platform.OS === 'ios' ? (
-            <>
-              <Text style={styles.permissionTitle}>Not Supported on iOS</Text>
-              <Text style={styles.permissionText}>
-                SMS reading is not supported on iOS due to platform restrictions. This feature is only available on Android devices.
-              </Text>
-            </>
-          ) : (
-            <>
-              <Text style={styles.permissionTitle}>Permission Required</Text>
-              <Text style={styles.permissionText}>
-                This feature requires SMS permissions to read transaction messages from your bank. If the feature is not working after granting permissions, please contact admin for support.
-              </Text>
-              <TouchableOpacity style={styles.permissionButton} onPress={handleRequestPermission}>
-                <Text style={styles.permissionButtonText}>Grant Permission</Text>
-              </TouchableOpacity>
-            </>
-          )}
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <Text style={styles.header}>SMS Import</Text>
+          <View style={styles.permissionCard}>
+            {Platform.OS === 'ios' ? (
+              <>
+                <Text style={styles.permissionTitle}>Not Supported on iOS</Text>
+                <Text style={styles.permissionText}>
+                  SMS reading is not supported on iOS due to platform restrictions. This feature is only available on Android devices.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.permissionTitle}>Permission Required</Text>
+                <Text style={styles.permissionText}>
+                  This feature requires SMS permissions to read transaction messages from your bank. If the feature is not working after granting permissions, please contact admin for support.
+                </Text>
+                <TouchableOpacity style={styles.permissionButton} onPress={handleRequestPermission}>
+                  <Text style={styles.permissionButtonText}>Grant Permission</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
+  const handleDateChange = (event, selectedDate) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setCustomDate(selectedDate);
+    }
+  };
+
   return (
-    <View style={styles.container}>
-      <View style={styles.headerContainer}>
-        <Text style={styles.header}>SMS Import</Text>
-        {transactions.length > 0 && !importing && (
-          <TouchableOpacity style={styles.importAllButton} onPress={handleImportAll}>
-            <Text style={styles.importAllButtonText}>Import All</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <View style={styles.headerContainer}>
+          <Text style={styles.header}>SMS Import</Text>
+          {transactions.length > 0 && !importing && (
+            <TouchableOpacity style={styles.importAllButton} onPress={handleImportAll}>
+              <Text style={styles.importAllButtonText}>Import All</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Filter Controls */}
+        <View style={styles.filterContainer}>
+          <TouchableOpacity
+            style={[styles.filterButton, filterType === 'today' && styles.filterButtonActive]}
+            onPress={() => setFilterType('today')}
+          >
+            <Text style={[styles.filterButtonText, filterType === 'today' && styles.filterButtonTextActive]}>
+              Today
+            </Text>
           </TouchableOpacity>
-        )}
-      </View>
-      {isLoading ? (
-        <ActivityIndicator size="large" color="#0984e3" style={styles.loader} />
-      ) : transactions.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyStateText}>No transactions found</Text>
-          <TouchableOpacity style={styles.refreshButton} onPress={loadTransactions}>
-            <Text style={styles.refreshButtonText}>Refresh</Text>
+          <TouchableOpacity
+            style={[styles.filterButton, filterType === 'week' && styles.filterButtonActive]}
+            onPress={() => setFilterType('week')}
+          >
+            <Text style={[styles.filterButtonText, filterType === 'week' && styles.filterButtonTextActive]}>
+              7 Days
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, filterType === 'month' && styles.filterButtonActive]}
+            onPress={() => setFilterType('month')}
+          >
+            <Text style={[styles.filterButtonText, filterType === 'month' && styles.filterButtonTextActive]}>
+              30 Days
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, filterType === 'custom' && styles.filterButtonActive]}
+            onPress={() => {
+              setFilterType('custom');
+              setShowDatePicker(true);
+            }}
+          >
+            <Text style={[styles.filterButtonText, filterType === 'custom' && styles.filterButtonTextActive]}>
+              Custom
+            </Text>
           </TouchableOpacity>
         </View>
-      ) : (
-        <FlatList
-          data={transactions}
-          renderItem={renderTransaction}
-          keyExtractor={(item) => item.smsId}
-          contentContainerStyle={styles.listContainer}
-        />
-      )}
-    </View>
+
+        {filterType === 'custom' && (
+          <View style={styles.customDateContainer}>
+            <Text style={styles.customDateLabel}>From: {customDate.toLocaleDateString('en-IN')}</Text>
+            <TouchableOpacity
+              style={styles.changeDateButton}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={styles.changeDateButtonText}>Change Date</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {showDatePicker && (
+          <DateTimePicker
+            value={customDate}
+            mode="date"
+            display="default"
+            onChange={handleDateChange}
+            maximumDate={new Date()}
+          />
+        )}
+
+        {isLoading ? (
+          <ActivityIndicator size="large" color="#0984e3" style={styles.loader} />
+        ) : transactions.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>No transactions found</Text>
+            <TouchableOpacity style={styles.refreshButton} onPress={loadTransactions}>
+              <Text style={styles.refreshButtonText}>Refresh</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <FlatList
+            data={transactions}
+            renderItem={renderTransaction}
+            keyExtractor={(item) => item.smsId}
+            contentContainerStyle={styles.listContainer}
+          />
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f7f8fa',
+  },
   container: {
     flex: 1,
     backgroundColor: '#f7f8fa',
     padding: 16,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    gap: 8,
+  },
+  filterButton: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#dfe6e9',
+    alignItems: 'center',
+  },
+  filterButtonActive: {
+    backgroundColor: '#0984e3',
+    borderColor: '#0984e3',
+  },
+  filterButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#636e72',
+  },
+  filterButtonTextActive: {
+    color: '#fff',
+  },
+  customDateContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#dfe6e9',
+  },
+  customDateLabel: {
+    fontSize: 14,
+    color: '#2d3436',
+    fontWeight: '500',
+  },
+  changeDateButton: {
+    backgroundColor: '#0984e3',
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  changeDateButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   header: {
     fontSize: 28,

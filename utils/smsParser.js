@@ -53,22 +53,24 @@ const parseDate = (dateStr) => {
 const extractAccountInfo = (message) => {
   if (!message) return null;
 
-  // Pattern for savings account: "HDFC Bank A/c XX1263" or "A/c XX1263"
-  const savingsMatch = message.match(/(?:([A-Z\s]+Bank)\s+)?A\/c\s+(?:XX)?(\d{4})/i);
+  // Pattern for savings account: "HDFC Bank A/c XX1263", "Account XX1263", "Ac XX1263", "A/C *1263", "A/C No 1263"
+  // We rely on extractBankName for the bank name to avoid capturing "spent on your..."
+  // Updated regex to handle '*' and 'No'
+  const savingsMatch = message.match(/(?:A\/c|Account|Ac)(?:\s+No)?\s+(?:XX|\*)?(\d{4})/i);
   if (savingsMatch) {
     return {
-      accountNumber: savingsMatch[2],
-      bankName: savingsMatch[1]?.trim() || extractBankName(message),
+      accountNumber: savingsMatch[1],
+      bankName: extractBankName(message),
       accountType: 'savings'
     };
   }
 
-  // Pattern for credit card: "card ending 8656" or "Credit Card ending XX1142"
-  const creditCardMatch = message.match(/(?:([A-Z\s]+Bank)\s+)?(?:Credit\s+)?[Cc]ard(?:member)?\s+.*?ending\s+(?:XX)?(\d{4})/i);
+  // Pattern for credit card: "card ending 8656", "Credit Card ending XX1142"
+  const creditCardMatch = message.match(/(?:Credit\s+)?[Cc]ard(?:member)?\s+.*?ending\s+(?:XX)?(\d{4})/i);
   if (creditCardMatch) {
     return {
-      accountNumber: creditCardMatch[2],
-      bankName: creditCardMatch[1]?.trim() || extractBankName(message),
+      accountNumber: creditCardMatch[1],
+      bankName: extractBankName(message),
       accountType: 'credit_card'
     };
   }
@@ -172,7 +174,7 @@ const parseEMandate = (message) => {
  * Example: "Update! INR 73,671.00 deposited in HDFC Bank A/c XX1263 on 23-OCT-25 for NEFT Cr-CITI0000002-NOKIA ACCOUNT FOR SALARY TRANSFER"
  */
 const parseNEFTCredit = (message) => {
-  const regex = /(?:INR|Rs\.?)\ s*([\ d,]+\.?\ d*)\ s+deposited.*?on\ s+(\ d{2}-[A-Z]{3}-\ d{2}).*?(?:for|Cr-)\ s*(.*?)(?:\.|Avl)/is;
+  const regex = /(?:INR|Rs\.?)\s*([\d,]+\.?\d*)\s+deposited.*?on\s+(\d{2}-[A-Z]{3}-\d{2}).*?(?:for|Cr-)\s*(.*?)(?:\.|Avl)/is;
   const match = message.match(regex);
 
   if (match) {
@@ -203,7 +205,7 @@ const parseNEFTCredit = (message) => {
  * Example: "HDFC Bank Cardmember, Online Payment of Rs.4567 vide Ref# 304104051VZ8b3c was credited to your card ending 8656 On 31/OCT/2025"
  */
 const parseCreditCardPayment = (message) => {
-  const regex = /(?:Online Payment|Payment).*?Rs\.?([\ d,]+\.?\ d*).*?credited to your card.*?(?:On|on)\ s+(\ d{2}\/[A-Z]{3}\/\ d{4})/is;
+  const regex = /(?:Online Payment|Payment).*?Rs\.?([\d,]+\.?\d*).*?credited to your card.*?(?:On|on)\s+(\d{2}\/[A-Z]{3}\/\d{4})/is;
   const match = message.match(regex);
 
   if (match) {
@@ -226,7 +228,7 @@ const parseCreditCardPayment = (message) => {
  * Example: "Credit Alert! Rs.200.00 credited to HDFC Bank A/c XX1263 on 16-11-25 from VPA ashish.pesu@oksbi (UPI 532049625234)"
  */
 const parseUPICredit = (message) => {
-  const regex = /(?:Credit Alert!|Rs\.?)\ s*([\ d,]+\.?\ d*)\ s+credited.*?on\ s+(\ d{2}-\ d{2}-\ d{2}).*?(?:from VPA|VPA)\ s+([^\ s(]+)/is;
+  const regex = /(?:Credit Alert!|Rs\.?)\s*([\d,]+\.?\d*)\s+credited.*?on\s+(\d{2}-\d{2}-\d{2}).*?(?:from VPA|VPA)\s+([^\s(]+)/is;
   const match = message.match(regex);
 
   if (match) {
@@ -249,7 +251,7 @@ const parseUPICredit = (message) => {
  * Example: "HDFC Bank : Your UPI transaction of 500.00 has been reversed in your account due to technical problem (UPI Ref no. 567869966958)"
  */
 const parseUPIReversal = (message) => {
-  const regex = /UPI transaction of\ s+([\ d,]+\.?\ d*)\ s+has been reversed/is;
+  const regex = /UPI transaction of\s+([\d,]+\.?\d*)\s+has been reversed/is;
   const match = message.match(regex);
 
   if (match) {
@@ -272,7 +274,7 @@ const parseUPIReversal = (message) => {
  * Example: "PAYMENT ALERT! INR 1500.00 deducted from HDFC Bank A/C No 1263 towards MIRAEASSETGLOBALINVESTMENT IND UMRN: HDFC0000000013819950"
  */
 const parsePaymentDebit = (message) => {
-  const regex = /(?:INR|Rs\.?)\ s*([\ d,]+\.?\ d*)\ s+deducted.*?towards\ s+(.*?)(?:UMRN|UMN|$)/is;
+  const regex = /(?:INR|Rs\.?)\s*([\d,]+\.?\d*)\s+deducted.*?towards\s+(.*?)(?:UMRN|UMN|$)/is;
   const match = message.match(regex);
 
   if (match) {

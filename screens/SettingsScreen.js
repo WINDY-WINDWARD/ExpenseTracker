@@ -266,6 +266,19 @@ const SettingsScreen = () => {
             <Text style={styles.buttonText}>Manage Categories</Text>
           </TouchableOpacity>
         </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Accounts</Text>
+          <Text style={styles.smallText}>
+            Manage accounts used for spends. Add new accounts or edit them.
+          </Text>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => navigation.navigate('AccountsScreen')}
+          >
+            <Text style={styles.buttonText}>Manage Accounts</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

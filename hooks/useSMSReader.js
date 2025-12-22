@@ -55,7 +55,7 @@ export const useSMSReader = () => {
     try {
       const hasReadSMS = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS);
       const hasReceiveSMS = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.RECEIVE_SMS);
-      
+
       const permissionGranted = hasReadSMS && hasReceiveSMS;
       setHasPermission(permissionGranted);
       return permissionGranted;
@@ -70,10 +70,12 @@ export const useSMSReader = () => {
    * @param {Object} options - Filter options
    * @param {number} options.maxCount - Maximum number of messages to read (default: 100)
    * @param {number} options.daysBack - Number of days to look back (default: 30)
+   * @param {number} options.minDate - Minimum date timestamp (overrides daysBack if provided)
+   * @param {number} options.maxDate - Maximum date timestamp (default: now)
    * @returns {Promise<Array>} Array of SMS messages
    */
   const readSMS = async (options = {}) => {
-    const { maxCount = 100, daysBack = 30 } = options;
+    const { maxCount = 100, daysBack = 30, minDate, maxDate } = options;
 
     if (Platform.OS !== 'android') {
       setError('SMS reading is only supported on Android');
@@ -92,8 +94,8 @@ export const useSMSReader = () => {
 
     try {
       // Calculate date range
-      const endDate = Date.now();
-      const startDate = endDate - (daysBack * 24 * 60 * 60 * 1000);
+      const endDate = maxDate || Date.now();
+      const startDate = minDate || (endDate - (daysBack * 24 * 60 * 60 * 1000));
 
       const filter = {
         box: 'inbox',

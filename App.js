@@ -16,6 +16,7 @@ import LoadTestData from "./screens/loadTestData";
 import SettingsScreen from "./screens/SettingsScreen";
 import CategoriesScreen from './screens/CategoriesScreen';
 import SMSImportScreen from './screens/SMSImportScreen';
+import AccountsScreen from './screens/AccountsScreen';
 import { enableScreens } from 'react-native-screens';
 
 enableScreens();
@@ -30,6 +31,7 @@ export default function App() {
         <RootStack.Screen name="LoadTestDataScreen" component={LoadTestData} />
         <RootStack.Screen name="CategoriesScreen" component={CategoriesScreen} />
         <RootStack.Screen name="SMSImportScreen" component={SMSImportScreen} />
+        <RootStack.Screen name="AccountsScreen" component={AccountsScreen} />
       </RootStack.Navigator>
     </NavigationContainer>
   );
