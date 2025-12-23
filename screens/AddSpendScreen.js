@@ -16,17 +16,20 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Card from '../components/Card';
 // navigation is passed as a prop from the navigator; route used for params
-import { initDB, getCategories } from '../db/database';
+import { initDB, getCategories, getAllAccounts } from '../db/database';
 
 export default function AddSpendScreen({ navigation, route }) {
   const [category, setCategory] = useState('');
+  const [accountId, setAccountId] = useState(null);
   const [note, setNote] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [db, setDb] = useState(null);
   const [categories, setCategories] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [showCategoryList, setShowCategoryList] = useState(false);
+  const [showAccountList, setShowAccountList] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
@@ -37,6 +40,16 @@ export default function AddSpendScreen({ navigation, route }) {
       try {
         const cats = await getCategories();
         setCategories(cats || []);
+        try {
+          const accs = await getAllAccounts();
+          setAccounts(accs || []);
+          // set default account if none selected
+          if (accs && accs.length > 0 && !accountId) {
+            setAccountId(accs[0].id);
+          }
+        } catch (e) {
+          console.warn('Failed to load accounts in AddSpendScreen', e);
+        }
       } catch (e) {
         console.warn('Failed to load categories in AddSpendScreen', e);
       }
@@ -49,6 +62,7 @@ export default function AddSpendScreen({ navigation, route }) {
     const spend = route?.params?.spend;
     if (spend) {
       setCategory(spend.category?.toString() || '');
+      setAccountId(spend.account_id ?? null);
       setNote(spend.note?.toString() || '');
       setAmount(spend.amount?.toString() || '');
       setDate(spend.date?.toString() || '');
@@ -60,7 +74,7 @@ export default function AddSpendScreen({ navigation, route }) {
     }
   }, [route]);
 
-  // refresh categories when screen focuses (in case user added new ones)
+  // refresh categories and accounts when screen focuses (in case user added new ones)
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', async () => {
       try {
@@ -68,6 +82,15 @@ export default function AddSpendScreen({ navigation, route }) {
         setCategories(cats || []);
       } catch (e) {
         console.warn('Failed to refresh categories on focus', e);
+      }
+      try {
+        const accs = await getAllAccounts();
+        setAccounts(accs || []);
+        if (accs && accs.length > 0 && !accountId) {
+          setAccountId(accs[0].id);
+        }
+      } catch (e) {
+        console.warn('Failed to refresh accounts on focus', e);
       }
     });
     return unsubscribe;
@@ -86,6 +109,10 @@ export default function AddSpendScreen({ navigation, route }) {
       Alert.alert('Validation Error', 'Please enter valid category, amount, and date.');
       return;
     }
+    if (!accountId) {
+      Alert.alert('Validation Error', 'Please select an account.');
+      return;
+    }
     if (!db) {
       Alert.alert('Database not ready', 'Please try again in a moment.');
       return;
@@ -93,19 +120,25 @@ export default function AddSpendScreen({ navigation, route }) {
 
     if (isEdit && editingId != null) {
       await db.runAsync(
-        'UPDATE daily_spends SET category = ?, note = ?, amount = ?, date = ? WHERE id = ?;',
-        [category, note, parseFloat(amount), date, editingId]
+        'UPDATE daily_spends SET category = ?, note = ?, amount = ?, date = ?, account_id = ? WHERE id = ?;',
+        [category, note, parseFloat(amount), date, accountId, editingId]
       );
     } else {
       await db.runAsync(
-        'INSERT INTO daily_spends (category, note, amount, date) VALUES (?, ?, ?, ?);',
-        [category, note, parseFloat(amount), date]
+        'INSERT INTO daily_spends (category, note, amount, date, account_id) VALUES (?, ?, ?, ?, ?);',
+        [category, note, parseFloat(amount), date, accountId]
       );
     }
     setCategory('');
     setNote('');
     setAmount('');
     setDate('');
+    // keep account selected if available, otherwise clear
+    if (accounts && accounts.length > 0) {
+      setAccountId(accounts[0].id);
+    } else {
+      setAccountId(null);
+    }
     navigation.goBack();
   };
 
@@ -151,6 +184,42 @@ export default function AddSpendScreen({ navigation, route }) {
                     }}
                   >
                     <Text style={{ color: '#2563eb' }}>+ Add new category</Text>
+                  </TouchableOpacity>
+                </ScrollView>
+              </View>
+            )}
+            <Text style={styles.inputLabel}>Account</Text>
+            <TouchableOpacity
+              style={[styles.input, styles.selectBox]}
+              onPress={() => setShowAccountList(!showAccountList)}
+            >
+              <Text style={{ color: accountId ? '#000' : '#6b7280' }}>
+                {accounts.find((a) => a.id === accountId)?.name || 'Select account'}
+              </Text>
+            </TouchableOpacity>
+            {showAccountList && (
+              <View style={styles.dropdown}>
+                <ScrollView style={{ maxHeight: 160 }}>
+                  {accounts.map((a) => (
+                    <TouchableOpacity
+                      key={String(a.id)}
+                      style={styles.dropdownItem}
+                      onPress={() => {
+                        setAccountId(a.id);
+                        setShowAccountList(false);
+                      }}
+                    >
+                      <Text>{a.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                  <TouchableOpacity
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setShowAccountList(false);
+                      navigation.navigate('AddAccountScreen');
+                    }}
+                  >
+                    <Text style={{ color: '#2563eb' }}>+ Add new account</Text>
                   </TouchableOpacity>
                 </ScrollView>
               </View>

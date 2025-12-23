@@ -105,6 +105,9 @@ export default function AddAccountScreen({ navigation }) {
             onValueChange={(itemValue, itemIndex) => {
               setAccountType(itemValue);
             }}
+            mode="dropdown"
+            style={{ color: '#222', backgroundColor: '#fff' }}
+            dropdownIconColor="#222"
           >
             <Picker.Item label="Savings" value="savings" />
             <Picker.Item label="Credit Card" value="credit_card" />
