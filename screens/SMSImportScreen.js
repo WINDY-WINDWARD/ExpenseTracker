@@ -15,13 +15,18 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
 import { useSMSReader } from '../hooks/useSMSReader';
 import { parseSMS } from '../utils/smsParser';
-import { initDB, findOrCreateAccount, getDefaultAccount } from '../db/database';
+import { initDB, findOrCreateAccount, getDefaultAccount, getAllAccounts } from '../db/database';
+import { Modal } from 'react-native';
 
 export default function SMSImportScreen() {
   const navigation = useNavigation();
   const { hasPermission, isLoading, error, requestPermissions, readSMS } = useSMSReader();
   const [transactions, setTransactions] = useState([]);
   const [importing, setImporting] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [accounts, setAccounts] = useState([]);
+  const [selectedAccountId, setSelectedAccountId] = useState(null);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [filterType, setFilterType] = useState('today');
   const [customDate, setCustomDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -102,71 +107,85 @@ export default function SMSImportScreen() {
   };
 
   const handleImport = async (transaction) => {
+    // Open account selection modal before importing
+    openAccountModal(transaction);
+  };
+
+  const openAccountModal = async (transaction) => {
+    setSelectedTransaction(transaction);
+    try {
+      const db = await initDB();
+
+      // If parser provided accountInfo, ensure account exists (will auto-create if needed)
+      if (transaction.accountInfo) {
+        const accId = await findOrCreateAccount(
+          transaction.accountInfo.accountNumber,
+          transaction.accountInfo.bankName,
+          transaction.accountInfo.accountType
+        );
+        // Reload accounts and set selected
+        const all = await getAllAccounts();
+        setAccounts(all);
+        setSelectedAccountId(accId);
+      } else {
+        // No parser account - select default
+        const defaultAcc = await getDefaultAccount(transaction.type === 'income' ? 'savings' : 'savings');
+        const all = await getAllAccounts();
+        setAccounts(all);
+        setSelectedAccountId(defaultAcc?.id || (all[0]?.id ?? null));
+      }
+
+      setModalVisible(true);
+    } catch (err) {
+      console.error('Error preparing account modal:', err);
+      Alert.alert('Error', 'Failed to prepare account selection.');
+    }
+  };
+
+  const confirmImport = async () => {
+    if (!selectedTransaction) return;
+    if (!selectedAccountId) {
+      Alert.alert('Select Account', 'Please select an account to import into.');
+      return;
+    }
+
+    setModalVisible(false);
     setImporting(true);
     try {
       const db = await initDB();
 
       // Check if SMS already imported
-      const existing = await db.getAllAsync(
-        'SELECT id FROM imported_sms WHERE sms_id = ?;',
-        [transaction.smsId]
-      );
-
+      const existing = await db.getAllAsync('SELECT id FROM imported_sms WHERE sms_id = ?;', [selectedTransaction.smsId]);
       if (existing && existing.length > 0) {
         Alert.alert('Already Imported', 'This transaction has already been imported.');
         setImporting(false);
         return;
       }
 
-      // Determine account
-      let accountId;
-      if (transaction.accountInfo) {
-        // Auto-create or find account
-        accountId = await findOrCreateAccount(
-          transaction.accountInfo.accountNumber,
-          transaction.accountInfo.bankName,
-          transaction.accountInfo.accountType
-        );
-      } else {
-        // Use default account
-        const defaultAccount = await getDefaultAccount(
-          transaction.type === 'income' ? 'savings' : 'savings'
-        );
-        accountId = defaultAccount?.id;
-
-        if (!accountId) {
-          Alert.alert('Error', 'No default account found. Please create an account first.');
-          setImporting(false);
-          return;
-        }
-      }
-
       let result;
       let incomeId = null;
       let dailySpendId = null;
 
-      if (transaction.type === 'income') {
-        // Insert into income table
+      if (selectedTransaction.type === 'income') {
         result = await db.runAsync(
           'INSERT INTO income (source, amount, date, account_id) VALUES (?, ?, ?, ?);',
           [
-            transaction.merchant,
-            transaction.amount,
-            transaction.date.split('T')[0],
-            accountId
+            selectedTransaction.merchant,
+            selectedTransaction.amount,
+            selectedTransaction.date.split('T')[0],
+            selectedAccountId
           ]
         );
         incomeId = result.lastInsertRowId;
       } else {
-        // Insert into daily_spends table
         result = await db.runAsync(
           'INSERT INTO daily_spends (date, category, amount, note, account_id) VALUES (?, ?, ?, ?, ?);',
           [
-            transaction.date.split('T')[0],
-            transaction.category,
-            transaction.amount,
-            `${transaction.merchant} (from SMS)`,
-            accountId
+            selectedTransaction.date.split('T')[0],
+            selectedTransaction.category,
+            selectedTransaction.amount,
+            `${selectedTransaction.merchant} (from SMS)`,
+            selectedAccountId
           ]
         );
         dailySpendId = result.lastInsertRowId;
@@ -175,13 +194,13 @@ export default function SMSImportScreen() {
       // Track imported SMS
       await db.runAsync(
         'INSERT INTO imported_sms (sms_id, imported_at, account_id, income_id, daily_spend_id) VALUES (?, ?, ?, ?, ?);',
-        [transaction.smsId, new Date().toISOString(), accountId, incomeId, dailySpendId]
+        [selectedTransaction.smsId, new Date().toISOString(), selectedAccountId, incomeId, dailySpendId]
       );
 
-      Alert.alert('Success', `${transaction.type === 'income' ? 'Income' : 'Expense'} imported successfully!`);
+      Alert.alert('Success', `${selectedTransaction.type === 'income' ? 'Income' : 'Expense'} imported successfully!`);
 
-      // Remove from list
-      setTransactions((prev) => prev.filter((t) => t.smsId !== transaction.smsId));
+      setTransactions((prev) => prev.filter((t) => t.smsId !== selectedTransaction.smsId));
+      setSelectedTransaction(null);
     } catch (err) {
       console.error('Error importing transaction:', err);
       Alert.alert('Error', `Failed to import transaction: ${err.message}`);
@@ -430,6 +449,46 @@ export default function SMSImportScreen() {
           />
         )}
 
+        {/* Account selection modal */}
+        <Modal
+          visible={modalVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Select Account</Text>
+              <FlatList
+                data={accounts}
+                keyExtractor={(a) => `${a.id}`}
+                style={{ maxHeight: 280 }}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.accountItem,
+                      selectedAccountId === item.id && styles.accountItemSelected,
+                    ]}
+                    onPress={() => setSelectedAccountId(item.id)}
+                  >
+                    <Text style={styles.accountName}>{item.name}</Text>
+                    <Text style={styles.accountSub}>{item.bank_name || item.account_number || ''}</Text>
+                  </TouchableOpacity>
+                )}
+              />
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity style={styles.modalButton} onPress={() => setModalVisible(false)}>
+                  <Text style={styles.modalButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalButton, { backgroundColor: '#4caf50' }]} onPress={confirmImport}>
+                  <Text style={[styles.modalButtonText, { color: '#fff' }]}>Confirm</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
         {isLoading ? (
           <ActivityIndicator size="large" color="#0984e3" style={styles.loader} />
         ) : transactions.length === 0 ? (
@@ -657,5 +716,60 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  accountItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eef3f6',
+  },
+  accountItemSelected: {
+    backgroundColor: '#e8f5e9',
+  },
+  accountName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#2d3436',
+  },
+  accountSub: {
+    fontSize: 13,
+    color: '#636e72',
+    marginTop: 4,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 12,
+  },
+  modalButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+  },
+  modalButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#333',
   },
 });

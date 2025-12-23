@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -25,8 +25,24 @@ export default function AddAccountScreen({ navigation }) {
 
   // Save the new account to DB
   const handleSave = async () => {
+    // Basic validations
     if (!name.trim()) {
-      Alert.alert('Validation', 'Please provide an account name');
+      Alert.alert('Validation', 'Account name is required. Please provide a name for this account.');
+      return;
+    }
+
+    if (accountNumber && !/^\d{1,4}$/.test(accountNumber.trim())) {
+      Alert.alert('Validation', 'Last 4 digits must be numeric and up to 4 digits (e.g. 1263).');
+      return;
+    }
+
+    if (accountType === 'savings' && currentBalance && isNaN(Number(currentBalance))) {
+      Alert.alert('Validation', 'Current balance must be a valid number (e.g. 1234.56).');
+      return;
+    }
+
+    if (accountType === 'credit_card' && creditLimit && isNaN(Number(creditLimit))) {
+      Alert.alert('Validation', 'Credit limit must be a valid number (e.g. 5000).');
       return;
     }
 
@@ -50,7 +66,22 @@ export default function AddAccountScreen({ navigation }) {
       navigation.goBack();
     } catch (e) {
       console.error('AddAccount save error', e);
-      Alert.alert('Error', 'Failed to create account');
+
+      // Produce a user-friendly message based on the error
+      let userMsg = 'Failed to create account. Please try again.';
+      if (e && e.message) {
+        const msg = e.message.toLowerCase();
+        if (msg.includes('unique') || msg.includes('constraint')) {
+          userMsg = 'An account with similar details already exists.';
+        } else if (msg.includes('syntax') || msg.includes('sql')) {
+          userMsg = 'A database error occurred while saving the account.';
+        } else {
+          // Fall back to the provided message but keep it short
+          userMsg = e.message.length > 150 ? e.message.substring(0, 147) + '...' : e.message;
+        }
+      }
+
+      Alert.alert('Error', userMsg);
     }
   };
 
@@ -71,7 +102,9 @@ export default function AddAccountScreen({ navigation }) {
         <View style={styles.pickerWrapper}>
           <Picker
             selectedValue={accountType}
-            onValueChange={(val) => setAccountType(val)}
+            onValueChange={(itemValue, itemIndex) => {
+              setAccountType(itemValue);
+            }}
           >
             <Picker.Item label="Savings" value="savings" />
             <Picker.Item label="Credit Card" value="credit_card" />
